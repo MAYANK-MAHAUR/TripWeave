@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.chrome-*/
+*.png
+*.jpg
+*.jpeg
+*.webp
+earth-preview.png
+desktop.png
+mobile.png
