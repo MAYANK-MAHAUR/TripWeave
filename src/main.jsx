@@ -192,7 +192,7 @@ function Navigation() {
     <header className="site-header">
       <a className="brand" href="#top" aria-label="Resilix home" onClick={close}>
         <span className="brand-sigil"><Radio /></span>
-        <span>RESILIX<sup>/</sup>OS</span>
+        <span>RESILIX</span>
       </a>
       <nav className={open ? 'nav-links nav-open' : 'nav-links'} aria-label="Primary navigation">
         <a href="#intelligence" onClick={close}>Recovery system</a>
@@ -477,7 +477,7 @@ function Footer() {
   return (
     <footer className="site-footer">
       <div className="footer-signal"><Radio /><span>RECOVERY SYSTEM READY</span></div>
-      <div className="footer-title">RESILIX<sup>/</sup>OS</div>
+      <div className="footer-title">RESILIX</div>
       <div className="footer-grid">
         <p>Autonomous B2B sourcing recovery for production teams under pressure.</p>
         <div><span>PROTOTYPE</span><strong>SCRAPE-VERSE / 2026</strong></div>
