@@ -72,6 +72,7 @@ async function executeTrip(job) {
     updateJob(job, { status: 'running', stage: 'Resolving cities and nearby airports', progress: 8 });
     const [origin, destination] = await Promise.all([resolveLocation(job.query.from), resolveLocation(job.query.to)]);
     job.locations = { origin, destination };
+    const placesPromise = findAttractions(destination).catch(() => []);
     const tripAdvisorLocationId = await findTripAdvisorLocationId(destination.name || job.query.to);
     const urls = buildCollectorUrls(job.query, origin, destination, { tripAdvisorLocationId });
     updateJob(job, { stage: 'Triggering live travel collectors', progress: 18 });
@@ -87,20 +88,48 @@ async function executeTrip(job) {
       const finished = Object.values(job.collectors).filter((collector) => ['complete', 'failed'].includes(collector.status)).length;
       updateJob(job, { stage: 'Collecting current public offers', progress: Math.min(68, 20 + Math.round((finished / Math.max(1, collectorTasks.length)) * 48)) });
     };
-    const completedResults = await Promise.all(runnableTasks.map((task) => runCollector(task.key, task.definition, task.url, onCollectorUpdate)));
     const skippedResults = collectorTasks.filter((task) => !task.url).map((task) => ({ key: task.key, collectorKey: task.collectorKey, label: task.definition.label, sourceLabel: task.definition.sourceLabel, tripLeg: task.definition.tripLeg, kind: task.definition.kind, composable: task.definition.composable !== false, status: 'skipped', url: null, error: 'A compatible destination page could not be resolved.', durationMs: 0, payload: null }));
+    const settledResults = [...skippedResults];
+    let previewQueue = Promise.resolve();
+    const publishPreview = () => {
+      const snapshot = [...settledResults];
+      previewQueue = previewQueue.then(async () => {
+        const normalized = await normalizeCollectorResults(snapshot, { query: job.query, origin, destination });
+        const offerCount = normalized.offers.transports.length + normalized.offers.hotels.length;
+        if (!offerCount) return;
+        const result = {
+          ...normalized,
+          pipelineVersion,
+          streaming: true,
+          settledSources: snapshot.length,
+          totalSources: collectorTasks.length,
+          places: [],
+          allPlaces: [],
+          ai: { enabled: false, model: process.env.GEMINI_MODEL || 'gemini-3.7-flash', message: 'More live sources are still being added.' },
+        };
+        updateJob(job, { result, stage: `Showing ${offerCount} live offers while other sources finish` });
+      }).catch(() => { /* a preview must never stop the final result */ });
+      return previewQueue;
+    };
+    const completedResults = await Promise.all(runnableTasks.map(async (task) => {
+      const result = await runCollector(task.key, task.definition, task.url, onCollectorUpdate);
+      settledResults.push(result);
+      await publishPreview();
+      return result;
+    }));
+    await previewQueue;
     const results = [...completedResults, ...skippedResults];
     results.forEach((result) => { job.collectors[result.key] = { ...result, payload: undefined }; });
 
     updateJob(job, { stage: 'Normalizing prices and composing journeys', progress: 74 });
     const normalized = await normalizeCollectorResults(results, { query: job.query, origin, destination });
-    updateJob(job, { stage: 'Finding real tour stops', progress: 84 });
-    const places = await findAttractions(destination);
+    updateJob(job, { stage: 'Adding real tour stops', progress: 84 });
+    const places = await placesPromise;
     updateJob(job, { stage: 'Gemini is checking the recommendation', progress: 92 });
     const ai = await enrichWithGemini({ ...normalized, places });
     const selectedTourNames = new Set(ai.tour_stop_names || []);
     const tourPlaces = selectedTourNames.size ? places.filter((place) => selectedTourNames.has(place.name)) : places.slice(0, 4);
-    const result = { ...normalized, pipelineVersion, places: tourPlaces, allPlaces: places, ai };
+    const result = { ...normalized, pipelineVersion, streaming: false, settledSources: results.length, totalSources: collectorTasks.length, places: tourPlaces, allPlaces: places, ai };
     const partial = !normalized.journeys.length || normalized.journeys.every((journey) => !journey.coverage.complete);
     updateJob(job, { status: partial ? 'partial' : 'ready', stage: partial ? 'Ready with transparent gaps' : 'Trip ready', progress: 100, result });
     const cachedJob = { schemaVersion: pipelineVersion, at: Date.now(), result: publicJob(job) };
