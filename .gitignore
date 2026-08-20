@@ -7,6 +7,7 @@ server/.cache/
 brightdata-*-create.json
 current-job-id.txt
 real-trip-result*.json
+collector-probe*.json
 .chrome-*/
 *.png
 *.jpg

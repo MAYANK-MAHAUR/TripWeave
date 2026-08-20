@@ -9,6 +9,8 @@
     "dev:api": "node --watch server/index.js",
     "dev:web": "vite",
     "build": "vite build",
+    "test": "npm run test:contracts",
+    "test:contracts": "node scripts/integration-contracts.mjs",
     "test:e2e": "node scripts/e2e-dedicated-trip.mjs",
     "preview": "vite preview",
     "start": "node server/index.js"

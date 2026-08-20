@@ -6,6 +6,7 @@ const airportPath = require.resolve('airports');
 const airports = JSON.parse(fs.readFileSync(airportPath, 'utf8'))
   .filter((airport) => airport.status === 1 && airport.iata && airport.lat && airport.lon);
 const locationCache = new Map();
+const tripAdvisorCache = new Map();
 
 const radians = (degrees) => Number(degrees) * Math.PI / 180;
 const distanceKm = (a, b) => {
@@ -57,6 +58,37 @@ export async function resolveLocation(input) {
   const value = { query: raw, name, ...coordinates, iata: airport.iata, airport: airport.name, country: place.address?.country_code?.toUpperCase() || airport.iso, distanceToAirportKm: Math.round(airport.distanceKm) };
   locationCache.set(key, value);
   return value;
+}
+
+export async function findTripAdvisorLocationId(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+  const key = raw.toLowerCase();
+  if (tripAdvisorCache.has(key)) return tripAdvisorCache.get(key);
+  try {
+    const searchResponse = await fetch(`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(raw)}&language=en&format=json&limit=6&origin=*`, {
+      headers: { 'User-Agent': 'TripWeave-hackathon/1.0 (travel comparison prototype)' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!searchResponse.ok) throw new Error('Wikidata search failed.');
+    const search = await searchResponse.json();
+    const ids = (search.search || []).map((item) => item.id).filter(Boolean);
+    if (!ids.length) throw new Error('No Wikidata destination found.');
+    const entityResponse = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${encodeURIComponent(ids.join('|'))}&props=claims|labels&languages=en&format=json&origin=*`, {
+      headers: { 'User-Agent': 'TripWeave-hackathon/1.0 (travel comparison prototype)' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!entityResponse.ok) throw new Error('Wikidata entity lookup failed.');
+    const entityData = await entityResponse.json();
+    const exact = ids.find((id) => entityData.entities?.[id]?.labels?.en?.value?.toLowerCase() === key && entityData.entities?.[id]?.claims?.P3134?.length);
+    const match = exact || ids.find((id) => entityData.entities?.[id]?.claims?.P3134?.length);
+    const value = match ? String(entityData.entities[match].claims.P3134[0]?.mainsnak?.datavalue?.value || '') || null : null;
+    tripAdvisorCache.set(key, value);
+    return value;
+  } catch {
+    tripAdvisorCache.set(key, null);
+    return null;
+  }
 }
 
 export async function findAttractions(destination) {
