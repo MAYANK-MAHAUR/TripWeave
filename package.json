@@ -18,6 +18,9 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "dependencies": {
     "airports": "^1.0.0",
     "dotenv": "^17.4.2",
