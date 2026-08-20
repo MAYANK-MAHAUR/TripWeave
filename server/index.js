@@ -166,7 +166,8 @@ app.post('/api/trips', (request, response) => {
     if (!query.from || !query.to) throw new Error('Enter both origin and destination.');
     const options = { includeReferenceSources: request.body?.includeReferenceSources === true };
     const forceRefresh = request.body?.forceRefresh === true;
-    const cacheKey = options.includeReferenceSources ? JSON.stringify({ query, includeReferenceSources: true }) : JSON.stringify(query);
+    const canonicalQuery = { ...query, from: query.from.toLowerCase(), to: query.to.toLowerCase() };
+    const cacheKey = options.includeReferenceSources ? JSON.stringify({ query: canonicalQuery, includeReferenceSources: true }) : JSON.stringify(canonicalQuery);
     if (!forceRefresh) {
       const reusableJob = [...jobs.values()].find((candidate) => candidate.cacheKey === cacheKey
         && candidate.status !== 'error'
