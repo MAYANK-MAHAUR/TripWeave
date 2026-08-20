@@ -48,7 +48,10 @@ try {
   } else {
     await desktop.goto(`${baseUrl}/trip/${knownTripId}`, { waitUntil: 'networkidle' });
   }
-  await desktop.getByText(`${knownQuery.from} → ${knownQuery.to}`, { exact: false }).first().waitFor({ timeout: 15_000 });
+  const routeHeading = desktop.locator('.trip-summary-copy h1');
+  await routeHeading.waitFor({ timeout: 15_000 });
+  const routeHeadingText = (await routeHeading.innerText()).toLowerCase();
+  assert.ok(routeHeadingText.includes(knownQuery.from.toLowerCase()) && routeHeadingText.includes(knownQuery.to.toLowerCase()), 'The trip heading must show the selected route.');
   assert.equal(await desktop.locator('.hero').count(), 0, 'The landing hero must not render on a trip page.');
   assert.equal(await desktop.locator('.trip-page').count(), 1, 'The result must render on a dedicated trip page.');
   assert.equal(await desktop.locator('.trip-row').count(), expectedJourneys, 'The UI must render every composed journey in the cached real job.');
@@ -60,7 +63,7 @@ try {
   await desktop.waitForTimeout(300);
   assert.ok((await desktop.evaluate(() => window.scrollY)) < 5, 'A refreshed trip page must restore at the top.');
 
-  await desktop.getByRole('button', { name: 'Open guided route' }).click();
+  await desktop.getByRole('button', { name: 'View route on globe' }).click();
   await desktop.locator('canvas').waitFor({ timeout: 20_000 });
   await desktop.getByRole('button', { name: 'Next stop' }).click();
   await desktop.getByRole('heading', { name: `${knownDestination.name} arrival` }).waitFor();
