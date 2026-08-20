@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "fields": {
+    "mode": {"type": "text"},
+    "operator": {"type": "text"},
+    "departure_text": {"type": "text"},
+    "arrival_text": {"type": "text"},
+    "duration_text": {"type": "text"},
+    "duration_minutes": {"type": "number"},
+    "transfers": {"type": "text"},
+    "price_min": {"type": "number"},
+    "price_max": {"type": "number"},
+    "currency": {"type": "text"},
+    "booking_url": {"type": "url"},
+    "source_url": {"type": "url"},
+    "fetched_at": {"type": "text"}
+  }
+}
