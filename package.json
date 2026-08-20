@@ -12,6 +12,7 @@
     "test": "npm run test:contracts",
     "test:contracts": "node scripts/integration-contracts.mjs",
     "test:e2e": "node scripts/e2e-dedicated-trip.mjs",
+    "test:e2e:self-heal": "node scripts/e2e-self-heal.mjs",
     "preview": "vite preview",
     "start": "node server/index.js"
   },

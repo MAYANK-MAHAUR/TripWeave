@@ -11,6 +11,7 @@ import {
 
 gsap.registerPlugin(ScrollTrigger);
 const RouteTour = lazy(() => import('./RouteTour.jsx'));
+const SelfHealDemo = lazy(() => import('./SelfHealDemo.jsx'));
 const terminalStatuses = new Set(['ready', 'partial', 'error']);
 const modeIcons = { Flight: Plane, Train: TrainFront, Bus: BusFront, Cab: CarFront, Van: BusFront, Hotel };
 const day = (offset) => { const date = new Date(); date.setDate(date.getDate() + offset); return date.toISOString().slice(0, 10); };
@@ -27,7 +28,7 @@ function InlineLink({ children, href = '#', onClick, className = '' }) {
 function Navigation({ job }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
-  return <header className="site-header"><a className="brand" href="/" onClick={close} aria-label="TripWeave home"><span className="brand-mark"><Route /></span><span>TRIPWEAVE</span></a><nav className={open ? 'nav-links nav-open' : 'nav-links'} aria-label="Primary navigation"><a href="/#how" onClick={close}>Why TripWeave</a><a href={job?.id ? `/trip/${job.id}` : '/#planner'} onClick={close}>Live comparison</a><a href="/#pipeline" onClick={close}>How it works</a><InlineLink href="/#network" onClick={close}>Live sources</InlineLink></nav><button className="menu-button" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'Close menu' : 'Open menu'}>{open ? <X /> : <Menu />}</button></header>;
+  return <header className="site-header"><a className="brand" href="/" onClick={close} aria-label="TripWeave home"><span className="brand-mark"><Route /></span><span>TRIPWEAVE</span></a><nav className={open ? 'nav-links nav-open' : 'nav-links'} aria-label="Primary navigation"><a href="/#how" onClick={close}>Why TripWeave</a><a href={job?.id ? `/trip/${job.id}` : '/#planner'} onClick={close}>Live comparison</a><a href="/#pipeline" onClick={close}>How it works</a><InlineLink href="/#network" onClick={close}>Live sources</InlineLink><a className="self-heal-nav-link" href="/self-heal" onClick={close}>Self-heal demo</a></nav><button className="menu-button" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'Close menu' : 'Open menu'}>{open ? <X /> : <Menu />}</button></header>;
 }
 
 function SearchField({ icon: Icon, label, value, onChange, type = 'text', placeholder, min, max }) {
@@ -293,5 +294,6 @@ export default function App() {
     return () => { context?.revert(); cancelAnimationFrame(rafId); lenis.destroy(); };
   }, []);
   const isTripPage = /^\/trip\//.test(pathname);
-  return <><Navigation job={activeTripJob || job} />{isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}<Footer />{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
+  const isSelfHealPage = /^\/self-heal\/?$/.test(pathname);
+  return <>{!isSelfHealPage && <Navigation job={activeTripJob || job} />}{isSelfHealPage ? <Suspense fallback={<div className="self-heal-loading">Loading the repair lab...</div>}><SelfHealDemo /></Suspense> : isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}{!isSelfHealPage && <Footer />}{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
 }
