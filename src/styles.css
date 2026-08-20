@@ -768,3 +768,165 @@ body.modal-open { overflow: hidden; }
   .trip-page .row-total small { font-size: 8px; }
   .trip-page .row-arrow { display: none; }
 }
+
+/* Dark, high-contrast trip workspace. */
+.trip-page {
+  --trip-canvas: #071923;
+  --trip-card: #0d2733;
+  --trip-ink: #f7fbf8;
+  --trip-muted: #a9bdb7;
+  --trip-line: rgba(220, 235, 226, .18);
+  --trip-green: #8be4c6;
+  --trip-green-soft: rgba(139, 228, 198, .11);
+  --trip-coral: #ff8268;
+}
+.trip-page-bar { background: rgba(9, 30, 40, .97); border-color: var(--trip-line); }
+.trip-page .trip-summary-meta span { background: #0b222d; }
+.trip-route-ticket { background: #102f3d; border-color: rgba(183, 239, 215, .19); box-shadow: 0 28px 70px rgba(0, 0, 0, .28); }
+.trip-stat-range { background: #187f6a; border-color: #26947c; }
+.trip-page .filter-tabs { background: rgba(255, 255, 255, .07); }
+.trip-page .filter-tab:hover,
+.trip-page .filter-tab.active { background: #193a47; box-shadow: none; color: var(--trip-green); }
+.trip-page .console-snapshot { background: rgba(139, 228, 198, .1); border-color: rgba(139, 228, 198, .26); color: var(--trip-green); }
+.trip-page .console-snapshot.partial { background: rgba(255, 211, 122, .1); border-color: rgba(255, 211, 122, .25); color: #ffd37a; }
+.trip-page .console-snapshot time { color: var(--trip-muted); }
+.trip-page .console-grid { grid-template-columns: 1fr; }
+.trip-page .trip-row:hover { background: rgba(139, 228, 198, .055); }
+.trip-page .trip-row.selected { background: var(--trip-green-soft); }
+.trip-page .mode-pill { background: rgba(139, 228, 198, .09); color: #c5ded5; }
+.trip-page .row-arrow { color: var(--trip-green); }
+.trip-page .live-progress .progress-track { background: rgba(255, 255, 255, .08); }
+.trip-page .coverage-note { background: rgba(255, 211, 122, .09); border-color: rgba(255, 211, 122, .24); color: #ffd37a; }
+.trip-page .coverage-note.complete { background: rgba(139, 228, 198, .1); border-color: rgba(139, 228, 198, .24); color: var(--trip-green); }
+.trip-page .detail-button { background: var(--trip-coral); color: var(--midnight); }
+.trip-page .detail-button:hover { background: #ff9a86; }
+
+/* A selected plan opens as a full travel dossier, without moving the page. */
+.plan-detail-modal {
+  align-items: center;
+  animation: plan-modal-in .28s ease both;
+  background: rgba(2, 12, 17, .84);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 80;
+}
+@keyframes plan-modal-in { from { opacity: 0; } to { opacity: 1; } }
+.plan-detail-shell {
+  animation: plan-shell-in .34s cubic-bezier(.2, .8, .2, 1) both;
+  background: #0c2430;
+  border: 1px solid rgba(183, 239, 215, .23);
+  border-radius: 22px;
+  box-shadow: 0 38px 110px rgba(0, 0, 0, .55);
+  color: var(--white);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: min(820px, calc(100dvh - 36px));
+  max-width: 1260px;
+  overflow: hidden;
+  width: min(1260px, 96vw);
+}
+@keyframes plan-shell-in { from { opacity: 0; transform: translateY(20px) scale(.985); } to { opacity: 1; transform: none; } }
+.plan-modal-head {
+  align-items: start;
+  border-bottom: 1px solid rgba(220, 235, 226, .15);
+  display: grid;
+  gap: 30px;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  padding: 28px 32px 24px;
+}
+.plan-modal-head .eyebrow { color: var(--coral); font-size: 12px; }
+.plan-modal-head h2 { font: 600 clamp(30px, 3.5vw, 52px)/.98 var(--display); letter-spacing: -.06em; margin: 9px 0 8px; }
+.plan-modal-head p:last-child { color: rgba(248, 251, 245, .68); font-size: 14px; line-height: 1.55; margin: 0; max-width: 770px; }
+.plan-modal-close {
+  align-items: center;
+  background: rgba(255, 255, 255, .055);
+  border: 1px solid rgba(220, 235, 226, .2);
+  border-radius: 50%;
+  color: var(--white);
+  cursor: pointer;
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+.plan-modal-close:hover { border-color: var(--coral); color: var(--coral); }
+.plan-modal-close svg { height: 18px; width: 18px; }
+.plan-modal-summary {
+  align-items: center;
+  border-bottom: 1px solid rgba(220, 235, 226, .15);
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(210px, .7fr) minmax(300px, 1.15fr) auto;
+  padding: 19px 32px;
+}
+.plan-modal-total span { color: rgba(248, 251, 245, .55); display: block; font: 500 11px var(--mono); text-transform: uppercase; }
+.plan-modal-total strong { color: var(--teal); display: block; font: 650 38px var(--display); letter-spacing: -.06em; margin-top: 4px; }
+.plan-modal-total small { color: rgba(248, 251, 245, .5); font: 500 10px var(--mono); }
+.plan-modal-facts { align-items: center; display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.plan-modal-facts > span { align-items: center; color: rgba(248, 251, 245, .72); display: inline-flex; font-size: 13px; font-weight: 600; gap: 7px; }
+.plan-modal-facts > span svg { height: 15px; width: 15px; }
+.plan-modal-facts .mode-pill { background: rgba(183, 239, 215, .1); color: rgba(248, 251, 245, .8); font-size: 10px; padding: 8px 10px; }
+.plan-modal-actions { display: flex; gap: 9px; }
+.plan-modal-actions .primary-button { background: var(--coral); color: var(--midnight); min-height: 48px; text-transform: none; }
+.plan-modal-actions .source-button { border-color: rgba(220, 235, 226, .22); border-radius: 0; color: var(--white); min-height: 48px; padding: 0 16px; text-transform: none; }
+.plan-modal-grid { display: grid; grid-template-columns: minmax(0, .86fr) minmax(0, 1.14fr); min-height: 0; }
+.plan-modal-panel { min-height: 0; overflow-y: auto; padding: 25px 32px 20px; }
+.plan-modal-panel + .plan-modal-panel { border-left: 1px solid rgba(220, 235, 226, .15); }
+.plan-modal-panel .detail-label { color: rgba(248, 251, 245, .52); font-size: 11px; }
+.plan-modal-breakdown .breakdown-row { border-bottom: 1px solid rgba(220, 235, 226, .12); font: 600 14px var(--body); margin: 0; padding: 15px 0; }
+.plan-modal-breakdown .breakdown-row span { color: rgba(248, 251, 245, .86); }
+.plan-modal-breakdown .breakdown-row strong { color: var(--white); }
+.plan-modal-breakdown .breakdown-row small { color: rgba(248, 251, 245, .48); font-size: 10px; margin-top: 4px; }
+.plan-modal-panel .breakdown-total { border-color: rgba(220, 235, 226, .18); color: var(--teal); font: 600 13px var(--body); margin-top: 14px; }
+.plan-modal-timeline .timeline-row { gap: 14px; grid-template-columns: 82px 15px minmax(0, 1fr); margin-top: 18px; }
+.plan-modal-timeline .timeline-time { color: var(--teal); font-size: 11px; }
+.plan-modal-timeline .timeline-row strong { color: var(--white); font-size: 15px; }
+.plan-modal-timeline .timeline-row p { color: rgba(248, 251, 245, .58); font: 500 12px/1.45 var(--body); }
+.plan-modal-timeline .timeline-stem { background: rgba(220, 235, 226, .18); height: 22px; left: 89px; top: 17px; }
+.plan-modal-coverage { border-width: 1px 0 0; margin: 0; padding: 13px 32px; }
+
+/* Readability floor, including the small copy shown in the supplied screenshot. */
+.value-main > p { font-size: 17px; line-height: 1.7; }
+.coverage-contrast strong { font-size: 16px; }
+.coverage-contrast span { font: 500 12px/1.55 var(--body); }
+.coverage-contrast > div { gap: 10px; }
+.nav-links > a:not(.inline-link), .inline-link, .eyebrow, .section-index, .primary-button, .search-submit, .text-link,
+.console-brand, .process-step > span, .process-step p, .source-line strong, .source-line > span:not(.state), .footer-signal,
+.footer-grid p, .footer-grid span, .footer-grid strong, .footer-grid a { font-size: 12px; }
+.route-node span, .search-card-head, .search-foot, .field-label, .value-metrics span, .filter-tab, .console-filter,
+.list-heading, .row-eyebrow, .mode-pill, .row-total small, .row-meta, .detail-topline, .detail-label, .detail-total span,
+.detail-total small, .timeline-time, .timeline-row p, .source-button, .network-topline, .source-table-head, .state,
+.hackathon-art > p, .globe-loading, .globe-caption, .globe-info-top small, .globe-filters button, .globe-leg p,
+.globe-leg small, .places-strip > div span, .live-update-signal, .live-update-bar > span:last-of-type,
+.collector-progress-card small, .raw-offer small, .breakdown-row small, .coverage-note, .tour-controls .tour-play,
+.tour-active-card a, .ai-route-note span, .ai-route-note small, .tour-stop-list button > span,
+.tour-stop-list button small, .tour-price-summary > span, .tour-price-summary a, .trip-page-bar { font-size: 11px; }
+
+@media (max-width: 900px) {
+  .plan-detail-shell { height: calc(100dvh - 24px); width: calc(100vw - 24px); }
+  .plan-modal-head { padding: 23px 24px 20px; }
+  .plan-modal-summary { align-items: start; grid-template-columns: 1fr 1fr; padding: 17px 24px; }
+  .plan-modal-actions { grid-column: 1 / -1; }
+  .plan-modal-grid { grid-template-columns: 1fr 1fr; }
+  .plan-modal-panel { padding: 22px 24px 18px; }
+  .plan-modal-coverage { padding-left: 24px; padding-right: 24px; }
+}
+
+@media (max-width: 680px) {
+  .plan-detail-modal { padding: 0; }
+  .plan-detail-shell { border: 0; border-radius: 0; display: block; height: 100dvh; overflow-y: auto; width: 100vw; }
+  .plan-modal-head { grid-template-columns: minmax(0, 1fr) 42px; padding: 78px 20px 21px; }
+  .plan-modal-head h2 { font-size: 34px; }
+  .plan-modal-head p:last-child { font-size: 13px; }
+  .plan-modal-summary { display: grid; grid-template-columns: 1fr; padding: 19px 20px; }
+  .plan-modal-actions { display: grid; grid-column: auto; grid-template-columns: 1fr; }
+  .plan-modal-grid { display: block; }
+  .plan-modal-panel { overflow: visible; padding: 24px 20px; }
+  .plan-modal-panel + .plan-modal-panel { border-left: 0; border-top: 1px solid rgba(220, 235, 226, .15); }
+  .plan-modal-coverage { padding: 15px 20px; }
+  .value-main > p { font-size: 15px; }
+  .coverage-contrast span { font-size: 12px; }
+}

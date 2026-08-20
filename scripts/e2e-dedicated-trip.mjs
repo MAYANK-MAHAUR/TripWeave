@@ -50,6 +50,10 @@ try {
   }
   const routeHeading = desktop.locator('.trip-summary-copy h1');
   await routeHeading.waitFor({ timeout: 15_000 });
+  await desktop.waitForFunction(({ from, to }) => {
+    const text = document.querySelector('.trip-summary-copy h1')?.textContent?.toLowerCase() || '';
+    return text.includes(from.toLowerCase()) && text.includes(to.toLowerCase());
+  }, { from: knownQuery.from, to: knownQuery.to }, { timeout: 15_000 });
   const routeHeadingText = (await routeHeading.innerText()).toLowerCase();
   assert.ok(routeHeadingText.includes(knownQuery.from.toLowerCase()) && routeHeadingText.includes(knownQuery.to.toLowerCase()), 'The trip heading must show the selected route.');
   assert.equal(await desktop.locator('.hero').count(), 0, 'The landing hero must not render on a trip page.');
@@ -63,6 +67,18 @@ try {
   await desktop.waitForTimeout(300);
   assert.ok((await desktop.evaluate(() => window.scrollY)) < 5, 'A refreshed trip page must restore at the top.');
 
+  await desktop.locator('.trip-row').first().click();
+  await desktop.locator('.plan-detail-modal').waitFor();
+  const modalBox = await desktop.locator('.plan-detail-shell').boundingBox();
+  assert.ok(modalBox && modalBox.y >= 0 && modalBox.y + modalBox.height <= 960, 'Plan details must open fully inside the desktop viewport.');
+  const kayakPlan = desktop.locator('.trip-row').filter({ hasText: 'KAYAK' }).first();
+  if (await kayakPlan.count()) {
+    await desktop.getByRole('button', { name: 'Close plan details' }).click();
+    await kayakPlan.click();
+    const kayakHref = await desktop.getByRole('link', { name: 'Open search result' }).getAttribute('href');
+    assert.match(kayakHref || '', /kayak\.com\/flights\//, 'KAYAK plans must link to the stable route search page.');
+    assert.doesNotMatch(kayakHref || '', /\/book\/flight/, 'Ephemeral KAYAK booking links must never reach the UI.');
+  }
   await desktop.getByRole('button', { name: 'View route on globe' }).click();
   await desktop.locator('canvas').waitFor({ timeout: 20_000 });
   await desktop.getByRole('button', { name: 'Next stop' }).click();

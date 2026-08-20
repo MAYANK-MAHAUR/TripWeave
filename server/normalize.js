@@ -62,6 +62,11 @@ function rowsFrom(payload, kind) {
   return rows.filter((row) => row && typeof row === 'object' && !row.error);
 }
 
+export function stableTransportSourceUrl(row, result) {
+  const scrapedUrl = absoluteUrl(first(row.booking_url, row.source_url), result.url);
+  return (result.collectorKey || result.key) === 'kayak' ? result.url : scrapedUrl;
+}
+
 function normalizeTransport(row, result, rates, origin, destination) {
   const priceValue = first(row.total_price, row.price, row.price_value, row.price_text, row.estimated_price_value, row.estimated_price_text);
   const code = currency(row, priceValue, result.key === 'redBus' ? 'INR' : null);
@@ -74,7 +79,7 @@ function normalizeTransport(row, result, rates, origin, destination) {
   const returnDeparture = text(first(row.return_departure_datetime, row.departure_time_return, row.return_departure_time));
   const returnArrival = text(first(row.return_arrival_datetime, row.arrival_time_return, row.return_arrival_time));
   const returnDuration = text(first(row.return_duration, row.duration_return));
-  const url = absoluteUrl(first(row.booking_url, row.source_url), result.url);
+  const url = stableTransportSourceUrl(row, result);
   const operator = text(first(row.airline, row.operator, row.bus_name, row.provider, row.company)) || result.sourceLabel || result.label;
   const isReturn = result.tripLeg === 'return';
   const fallbackOrigin = isReturn ? destination : origin;

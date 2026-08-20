@@ -89,9 +89,41 @@ function LegacyTripConsole({ job, error, onOpenTour, loadingSavedTrip = false })
   return <section className="compare-section" id="compare"><div className="compare-header section-shell"><div className="section-index light-index"><span>TRIP</span><span>Live result page</span></div><div><p className="eyebrow">{job?.query ? `${job.query.from} → ${job.query.to} / ${formatDate(job.query.departDate)}` : loadingSavedTrip ? 'Restoring trip job' : 'Waiting for a route'}</p><h2>See your trip options<br />as they arrive.</h2></div><p className="compare-intro">Compare the whole trip in one place. Every price links back to where it was found, and anything still missing is clearly marked.</p></div><div className="console-shell">{loadingSavedTrip && <div className="console-loading"><LoaderCircle className="spin" /><span className="eyebrow">LOADING SAVED TRIP</span><h3>Restoring your trip...</h3><p>Your saved travel and stay options are being restored.</p></div>}{!job && !error && !loadingSavedTrip && <div className="console-empty"><Compass /><h3>Your live comparison starts with a route.</h3><p>Enter two cities and dates on the home page. Real options start appearing within seconds, and the page keeps adding more as travel sites respond.</p><a className="primary-button" href="/">Choose a route <ArrowUpRight /></a></div>}{error && <div className="console-error"><AlertTriangle /><h3>Trip request stopped</h3><p>{error}</p><a href="/" className="primary-button">Start a new search <RefreshCw /></a></div>}{job && !terminalStatuses.has(job.status) && <CollectorProgress job={job} />}{job?.status === 'error' && <div className="console-error"><AlertTriangle /><h3>Live collection failed</h3><p>{job.error}</p><a href="/" className="primary-button">Try another search <RefreshCw /></a></div>}{job?.result && !journeys.length && <OfferFallback result={job.result} />}{job?.result && journeys.length > 0 && <><div className="console-toolbar"><div className="console-brand"><Route /><span>{journeys.length} trip plans / {job.result.offers.transports.length + job.result.offers.hotels.length} live options</span></div><div className="filter-tabs" role="group" aria-label="Sort real trip combinations">{filters.map((item) => <button className={filter === item ? 'filter-tab active' : 'filter-tab'} type="button" key={item} onClick={() => setFilter(item)}>{item}</button>)}</div></div><div className={`console-snapshot ${job.status === 'partial' ? 'partial' : ''}`}>{job.status === 'partial' ? <AlertTriangle /> : <ShieldCheck />} {snapshotMessage} <span>•</span> {new Date(job.result.collectedAt).toLocaleString()}</div><div className="console-grid"><div className="trip-list" role="list" aria-label="Composed journeys"><div className="list-heading"><span>{visible.length} options / prices shown in INR</span><span>Included</span></div>{visible.map((option) => <button className={current?.id === option.id ? 'trip-row selected' : 'trip-row'} type="button" key={option.id} onClick={() => setSelected(option.id)}><span className="row-eyebrow">{option.eyebrow}</span><span className="row-title">{option.label}</span><ModePills modes={option.modes} /><span className="row-total">{option.totalText}<small>{option.sources.join(' · ')}</small></span><span className="row-meta"><Clock3 /> {option.durationText} · {option.coverage.complete ? 'all priced legs' : `missing ${option.coverage.missing.join(', ')}`}</span><ArrowRight className="row-arrow" /></button>)}</div>{current && <aside className="trip-detail" aria-live="polite"><div className="detail-topline"><span>TRIP / {current.id.slice(0, 8).toUpperCase()}</span><span className="verified"><ShieldCheck /> {current.confidence}% details found</span></div><div className="detail-heading"><p className="eyebrow">{current.eyebrow}</p><h3>{current.label}</h3><p>{current.note}</p></div><div className="detail-total"><span>Current trip total</span><strong>{current.totalText}</strong><small>{current.sources.join(' · ')}</small></div><div className="detail-breakdown"><div className="detail-label">Price breakdown</div>{current.breakdown.map((row) => <a className="breakdown-row" href={row.url || '#'} target="_blank" rel="noreferrer" key={`${row.label}-${row.source}`}><span>{row.label}<small>{row.source}</small></span><strong>{formatInr(row.amountInr)}</strong></a>)}{job.result.observedRange && <div className="breakdown-total"><span>Current price range</span><strong>{job.result.observedRange.minText} to {job.result.observedRange.maxText}</strong></div>}</div><div className="timeline"><div className="detail-label">Your trip, step by step</div>{current.timeline.map((stop, index) => <div className="timeline-row" key={`${stop.label}-${index}`}><span className="timeline-time">{stop.time || 'Not set'}</span><span className="timeline-dot"><i /></span><div><strong>{stop.label}</strong><p>{stop.detail}</p></div>{index < current.timeline.length - 1 && <span className="timeline-stem" />}</div>)}</div><div className="coverage-note"><AlertTriangle /><span>{current.coverage.complete ? 'All currently priced legs are included.' : `Not priced yet: ${current.coverage.missing.join(', ')}.`}</span></div><div className="detail-actions"><button className="primary-button detail-button" type="button" onClick={() => onOpenTour(current)}><Compass /> Open guided route</button><a className="source-button" href={current.sourceUrl || '#'} target="_blank" rel="noreferrer"><ShieldCheck /> Open travel site <ArrowUpRight /></a></div></aside>}</div></>}</div></section>;
 }
 
+function PlanDetailModal({ plan, result, travellers, tag, sourceUrlFor, onClose, onOpenTour }) {
+  const closeRef = useRef();
+  useEffect(() => {
+    if (!plan) return undefined;
+    const onKeyDown = (event) => event.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKeyDown);
+    document.body.classList.add('modal-open');
+    window.requestAnimationFrame(() => closeRef.current?.focus());
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.classList.remove('modal-open');
+    };
+  }, [plan?.id]);
+  if (!plan) return null;
+  return <div className="plan-detail-modal" role="dialog" aria-modal="true" aria-labelledby="plan-detail-title" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="plan-detail-shell">
+      <header className="plan-modal-head"><div><p className="eyebrow">{tag(plan)}</p><h2 id="plan-detail-title">{plan.label}</h2><p>{plan.note}</p></div><button ref={closeRef} className="plan-modal-close" type="button" onClick={onClose} aria-label="Close plan details"><X /></button></header>
+      <div className="plan-modal-summary">
+        <div className="plan-modal-total"><span>Total for {travellers} traveller{travellers === 1 ? '' : 's'}</span><strong>{plan.totalText}</strong><small>{plan.sources.join(' · ')}</small></div>
+        <div className="plan-modal-facts"><ModePills modes={plan.modes} /><span><Clock3 /> {plan.durationText}</span><span className={plan.coverage.complete ? 'verified' : 'verified partial'}>{plan.coverage.complete ? <ShieldCheck /> : <AlertTriangle />}{plan.coverage.complete ? 'Complete price' : `${plan.coverage.missing.length} cost${plan.coverage.missing.length === 1 ? '' : 's'} missing`}</span></div>
+        <div className="plan-modal-actions"><button className="primary-button" type="button" onClick={() => { onClose(); onOpenTour({ ...plan, sourceUrl: sourceUrlFor(plan.sourceUrl, plan.sources.join(' ')), breakdown: plan.breakdown.map((row) => ({ ...row, url: sourceUrlFor(row.url, row.source) })) }); }}><Compass /> View route on globe</button><a className="source-button" href={sourceUrlFor(plan.sourceUrl, plan.sources.join(' '))} target="_blank" rel="noreferrer"><ShieldCheck /> Open search result <ArrowUpRight /></a></div>
+      </div>
+      <div className="plan-modal-grid">
+        <section className="plan-modal-panel"><div className="detail-label">What the total includes</div><div className="plan-modal-breakdown">{plan.breakdown.map((row) => <a className="breakdown-row" href={sourceUrlFor(row.url, row.source)} target="_blank" rel="noreferrer" key={`${row.label}-${row.source}`}><span>{row.label}<small>{row.source}</small></span><strong>{formatInr(row.amountInr)}</strong></a>)}</div>{result?.observedRange && <div className="breakdown-total"><span>All plan prices</span><strong>{result.observedRange.minText} to {result.observedRange.maxText}</strong></div>}</section>
+        <section className="plan-modal-panel"><div className="detail-label">Full route</div><div className="plan-modal-timeline">{plan.timeline.map((stop, index) => <div className="timeline-row" key={`${stop.label}-${index}`}><span className="timeline-time">{formatTripTime(stop.time)}</span><span className="timeline-dot"><i /></span><div><strong>{stop.label}</strong><p>{stop.detail}</p></div>{index < plan.timeline.length - 1 && <span className="timeline-stem" />}</div>)}</div></section>
+      </div>
+      <div className={`coverage-note plan-modal-coverage ${plan.coverage.complete ? 'complete' : ''}`}>{plan.coverage.complete ? <ShieldCheck /> : <AlertTriangle />}<span>{plan.coverage.complete ? 'This total includes every currently priced part of the plan.' : `Still not priced: ${plan.coverage.missing.join(', ')}.`}</span></div>
+    </div>
+  </div>;
+}
+
 function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
   const [filter, setFilter] = useState('All');
   const [selected, setSelected] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const result = job?.result;
   const query = job?.query || result?.query;
   const journeys = result?.journeys || [];
@@ -122,6 +154,8 @@ function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
   const toCode = result?.destination?.iata || toName.slice(0, 3).toUpperCase();
   const travellers = query?.adults || 1;
   const planTag = (plan) => plan.eyebrow === 'RECOMMENDED' ? 'Recommended' : plan.coverage.complete ? 'Complete trip' : 'Some costs still missing';
+  const kayakSearchUrl = job?.collectors?.kayak?.url || result?.sources?.find((source) => source.collectorKey === 'kayak')?.url;
+  const sourceUrlFor = (url, source) => /kayak/i.test(source || '') && kayakSearchUrl ? kayakSearchUrl : url || '#';
   const snapshotMessage = collecting
     ? `${offerCount} options ready now. More are being added automatically.`
     : job?.status === 'partial'
@@ -168,7 +202,7 @@ function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
           <div className="console-grid">
             <div className="trip-list" role="list" aria-label="Trip plans">
               <div className="list-heading"><span>{visible.length} plans</span><span>Total for {travellers}</span></div>
-              {visible.map((option) => <button className={current?.id === option.id ? 'trip-row selected' : 'trip-row'} type="button" key={option.id} onClick={() => setSelected(option.id)} aria-pressed={current?.id === option.id}>
+              {visible.map((option) => <button className={current?.id === option.id ? 'trip-row selected' : 'trip-row'} type="button" key={option.id} onClick={() => { setSelected(option.id); setDetailOpen(true); }} aria-pressed={current?.id === option.id}>
                 <span className="row-eyebrow">{planTag(option)}</span>
                 <span className="row-title">{option.label}</span>
                 <ModePills modes={option.modes} />
@@ -177,18 +211,10 @@ function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
                 <ArrowRight className="row-arrow" />
               </button>)}
             </div>
-            {current && <aside className="trip-detail" aria-live="polite">
-              <div className="detail-topline"><span>Selected plan</span><span className={current.coverage.complete ? 'verified' : 'verified partial'}>{current.coverage.complete ? <ShieldCheck /> : <AlertTriangle />}{current.coverage.complete ? 'Complete price' : 'Some costs missing'}</span></div>
-              <div className="detail-heading"><p className="eyebrow">{planTag(current)}</p><h3>{current.label}</h3><p>{current.note}</p></div>
-              <div className="detail-total"><span>Total for {travellers} traveller{travellers === 1 ? '' : 's'}</span><strong>{current.totalText}</strong><small>{current.sources.join(' · ')}</small></div>
-              <div className="detail-breakdown"><div className="detail-label">What the total includes</div>{current.breakdown.map((row) => <a className="breakdown-row" href={row.url || '#'} target="_blank" rel="noreferrer" key={`${row.label}-${row.source}`}><span>{row.label}<small>{row.source}</small></span><strong>{formatInr(row.amountInr)}</strong></a>)}{result.observedRange && <div className="breakdown-total"><span>All plan prices</span><strong>{result.observedRange.minText} to {result.observedRange.maxText}</strong></div>}</div>
-              <div className="timeline"><div className="detail-label">Your route</div>{current.timeline.map((stop, index) => <div className="timeline-row" key={`${stop.label}-${index}`}><span className="timeline-time">{formatTripTime(stop.time)}</span><span className="timeline-dot"><i /></span><div><strong>{stop.label}</strong><p>{stop.detail}</p></div>{index < current.timeline.length - 1 && <span className="timeline-stem" />}</div>)}</div>
-              <div className={`coverage-note ${current.coverage.complete ? 'complete' : ''}`}>{current.coverage.complete ? <ShieldCheck /> : <AlertTriangle />}<span>{current.coverage.complete ? 'The displayed total includes every currently priced part of this plan.' : `Still not priced: ${current.coverage.missing.join(', ')}.`}</span></div>
-              <div className="detail-actions"><button className="primary-button detail-button" type="button" onClick={() => onOpenTour(current)}><Compass /> View route on globe</button><a className="source-button" href={current.sourceUrl || '#'} target="_blank" rel="noreferrer"><ShieldCheck /> Open booking source <ArrowUpRight /></a></div>
-            </aside>}
           </div>
         </>}
       </div>
+      <PlanDetailModal plan={detailOpen ? current : null} result={result} travellers={travellers} tag={planTag} sourceUrlFor={sourceUrlFor} onClose={() => setDetailOpen(false)} onOpenTour={onOpenTour} />
     </section>
   );
 }

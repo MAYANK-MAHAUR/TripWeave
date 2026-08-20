@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { COLLECTORS } from '../server/config.js';
 import { buildCollectorUrls, normalizeTripQuery } from '../server/urls.js';
-import { pairRoundTripTransports } from '../server/normalize.js';
+import { pairRoundTripTransports, stableTransportSourceUrl } from '../server/normalize.js';
 
 const expectedCollectorIds = {
   kayak: 'c_mt1kuf7t24xwbky91k',
@@ -33,6 +33,7 @@ assert.match(urls.booking, /ss=Kochi.*checkin=2026-11-05.*checkout=2026-11-09.*g
 assert.match(urls.expedia, /destination=Kochi.*startDate=2026-11-05.*endDate=2026-11-09.*adults=3/);
 assert.match(urls.tripAdvisor, /Hotels-g297633-Kochi-Hotels\.html/);
 assert.throws(() => normalizeTripQuery({ from: 'A', to: 'B', departDate: '2026-11-09', returnDate: '2026-11-05' }), /after departure/);
+assert.equal(stableTransportSourceUrl({ booking_url: 'https://www.kayak.com/book/flight?code=expired' }, { key: 'kayak', url: urls.kayak }), urls.kayak, 'KAYAK must use the stable route search URL instead of an expiring booking URL.');
 
 const paired = pairRoundTripTransports([
   { id: 'out', tripLeg: 'outbound', collectorKey: 'redBus', mode: 'Bus', operator: 'Out Bus', amountInr: 1200, source: 'redBus', sourceUrl: 'https://example.com/out', durationMinutes: 600 },
