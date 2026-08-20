@@ -16,6 +16,7 @@ const selectedCache = cachedRecords
 assert.ok(selectedCache, 'Run one real trip first, or set TRIPWEAVE_TEST_TRIP_ID to a cached real job.');
 const knownTripId = selectedCache.result.id;
 const knownQuery = selectedCache.result.query;
+const knownDestination = selectedCache.result.result.destination;
 const expectedJourneys = selectedCache.result.result.journeys.length;
 const canReuseFormCache = Date.now() - selectedCache.at < 14 * 60 * 1000;
 
@@ -47,7 +48,7 @@ try {
   } else {
     await desktop.goto(`${baseUrl}/trip/${knownTripId}`, { waitUntil: 'networkidle' });
   }
-  await desktop.getByText('Delhi → Mumbai', { exact: false }).first().waitFor({ timeout: 15_000 });
+  await desktop.getByText(`${knownQuery.from} → ${knownQuery.to}`, { exact: false }).first().waitFor({ timeout: 15_000 });
   assert.equal(await desktop.locator('.hero').count(), 0, 'The landing hero must not render on a trip page.');
   assert.equal(await desktop.locator('.trip-page').count(), 1, 'The result must render on a dedicated trip page.');
   assert.equal(await desktop.locator('.trip-row').count(), expectedJourneys, 'The UI must render every composed journey in the cached real job.');
@@ -62,7 +63,7 @@ try {
   await desktop.getByRole('button', { name: 'Open guided route' }).click();
   await desktop.locator('canvas').waitFor({ timeout: 20_000 });
   await desktop.getByRole('button', { name: 'Next stop' }).click();
-  await desktop.getByRole('heading', { name: 'Mumbai arrival' }).waitFor();
+  await desktop.getByRole('heading', { name: `${knownDestination.name} arrival` }).waitFor();
   await desktop.waitForTimeout(3000);
   await desktop.screenshot({ path: `${outputDirectory}/guided-route-desktop.png`, fullPage: false });
   await desktop.getByRole('button', { name: 'Close guided route' }).click();
