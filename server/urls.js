@@ -18,7 +18,7 @@ export function normalizeTripQuery(input = {}) {
     to: String(input.to || '').trim(),
     departDate,
     returnDate,
-    adults: Math.min(8, Math.max(1, Number.parseInt(input.adults || input.travellers || 1, 10) || 1)),
+    adults: Math.min(4, Math.max(1, Number.parseInt(input.adults || input.travellers || 1, 10) || 1)),
     currency: String(input.currency || 'INR').toUpperCase(),
   };
 }

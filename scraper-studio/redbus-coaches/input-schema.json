@@ -1,6 +1,0 @@
-{
-  "type": "object",
-  "fields": {
-    "url": {"type": "url", "description": "Public redBus route results URL"}
-  }
-}
