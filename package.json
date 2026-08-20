@@ -1,7 +1,7 @@
 {
   "name": "hackathon",
   "version": "1.0.0",
-  "description": "Resilix - autonomous B2B sourcing recovery",
+  "description": "BuildRadar - global hackathon intelligence",
   "private": true,
   "type": "module",
   "scripts": {
