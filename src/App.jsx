@@ -5,12 +5,12 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
   AlertTriangle, ArrowDown, ArrowRight, ArrowUpRight, BedDouble, BusFront, CalendarDays,
   CarFront, ChevronLeft, ChevronRight, Clock3, Compass, Hotel, LoaderCircle, MapPin,
-  Menu, Pause, Plane, Play, RefreshCw, Route, Search, ShieldCheck, Sparkles,
+  Menu, Plane, RefreshCw, Route, Search, ShieldCheck,
   TrainFront, Users, Wifi, WifiOff, X,
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
-const Globe = lazy(() => import('react-globe.gl'));
+const RouteTour = lazy(() => import('./RouteTour.jsx'));
 const terminalStatuses = new Set(['ready', 'partial', 'error']);
 const modeIcons = { Flight: Plane, Train: TrainFront, Bus: BusFront, Cab: CarFront, Van: BusFront, Hotel };
 const day = (offset) => { const date = new Date(); date.setDate(date.getDate() + offset); return date.toISOString().slice(0, 10); };
@@ -92,6 +92,12 @@ function LegacyTripConsole({ job, error, onOpenTour, loadingSavedTrip = false })
 function PlanDetailModal({ plan, result, travellers, tag, sourceUrlFor, onClose, onOpenTour }) {
   const closeRef = useRef();
   useEffect(() => {
+    if (!plan?.hotel?.imageUrl) return undefined;
+    const image = new Image();
+    image.src = plan.hotel.imageUrl;
+    return () => { image.src = ''; };
+  }, [plan?.hotel?.imageUrl]);
+  useEffect(() => {
     if (!plan) return undefined;
     const onKeyDown = (event) => event.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKeyDown);
@@ -109,7 +115,7 @@ function PlanDetailModal({ plan, result, travellers, tag, sourceUrlFor, onClose,
       <div className="plan-modal-summary">
         <div className="plan-modal-total"><span>Total for {travellers} traveller{travellers === 1 ? '' : 's'}</span><strong>{plan.totalText}</strong><small>{plan.sources.join(' · ')}</small></div>
         <div className="plan-modal-facts"><ModePills modes={plan.modes} /><span><Clock3 /> {plan.durationText}</span><span className={plan.coverage.complete ? 'verified' : 'verified partial'}>{plan.coverage.complete ? <ShieldCheck /> : <AlertTriangle />}{plan.coverage.complete ? 'Complete price' : `${plan.coverage.missing.length} cost${plan.coverage.missing.length === 1 ? '' : 's'} missing`}</span></div>
-        <div className="plan-modal-actions"><button className="primary-button" type="button" onClick={() => { onClose(); onOpenTour({ ...plan, sourceUrl: sourceUrlFor(plan.sourceUrl, plan.sources.join(' ')), breakdown: plan.breakdown.map((row) => ({ ...row, url: sourceUrlFor(row.url, row.source) })) }); }}><Compass /> View route on globe</button><a className="source-button" href={sourceUrlFor(plan.sourceUrl, plan.sources.join(' '))} target="_blank" rel="noreferrer"><ShieldCheck /> Open search result <ArrowUpRight /></a></div>
+        <div className="plan-modal-actions"><button className="primary-button" type="button" onClick={() => { onClose(); onOpenTour({ ...plan, sourceUrl: sourceUrlFor(plan.sourceUrl, plan.sources.join(' ')), breakdown: plan.breakdown.map((row) => ({ ...row, url: sourceUrlFor(row.url, row.source) })) }); }}><Compass /> Start guided trip</button><a className="source-button" href={sourceUrlFor(plan.sourceUrl, plan.sources.join(' '))} target="_blank" rel="noreferrer"><ShieldCheck /> Open search result <ArrowUpRight /></a></div>
       </div>
       <div className="plan-modal-grid">
         <section className="plan-modal-panel"><div className="detail-label">What the total includes</div><div className="plan-modal-breakdown">{plan.breakdown.map((row) => <a className="breakdown-row" href={sourceUrlFor(row.url, row.source)} target="_blank" rel="noreferrer" key={`${row.label}-${row.source}`}><span>{row.label}<small>{row.source}</small></span><strong>{formatInr(row.amountInr)}</strong></a>)}</div>{result?.observedRange && <div className="breakdown-total"><span>All plan prices</span><strong>{result.observedRange.minText} to {result.observedRange.maxText}</strong></div>}</section>
@@ -219,46 +225,6 @@ function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
   );
 }
 
-function InteractiveRouteGlobe({ origin, destination, stops, activeStop }) {
-  const globeRef = useRef();
-  const containerRef = useRef();
-  const [size, setSize] = useState({ width: 540, height: 540 });
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return undefined;
-    const resize = () => { const width = Math.max(280, Math.min(container.clientWidth, 570)); setSize({ width, height: width }); };
-    resize();
-    const observer = new ResizeObserver(resize); observer.observe(container); return () => observer.disconnect();
-  }, []);
-  const configure = () => {
-    const globe = globeRef.current; const controls = globe?.controls?.(); if (!globe || !controls) return;
-    controls.autoRotate = false; controls.enableZoom = true; controls.enablePan = false;
-    globe.pointOfView({ lat: origin.lat, lng: origin.lng, altitude: 1.8 }, 0);
-  };
-  useEffect(() => { if (activeStop && globeRef.current) globeRef.current.pointOfView({ lat: activeStop.lat, lng: activeStop.lng, altitude: activeStop.kind === 'attraction' ? 0.55 : 0.9 }, 1200); }, [activeStop]);
-  const arcs = [{ startLat: origin.lat, startLng: origin.lng, endLat: destination.lat, endLng: destination.lng, color: ['#ff8268', '#b7efd7'], type: 'journey' }];
-  stops.slice(2).forEach((stop, index) => { const previous = index ? stops[index + 1] : destination; arcs.push({ startLat: previous.lat, startLng: previous.lng, endLat: stop.lat, endLng: stop.lng, color: ['#b7efd7', '#ffd37a'], type: 'tour' }); });
-  return <div className="interactive-globe" ref={containerRef}><Suspense fallback={<div className="globe-loading"><i className="live-dot" /> Loading WebGL route…</div>}><Globe ref={globeRef} onGlobeReady={configure} width={size.width} height={size.height} backgroundColor="rgba(0,0,0,0)" rendererConfig={{ antialias: true, alpha: true }} globeImageUrl="https://unpkg.com/three-globe/example/img/earth-night.jpg" bumpImageUrl="https://unpkg.com/three-globe/example/img/earth-topology.png" atmosphereColor="#65d9c0" atmosphereAltitude={0.16} pointsData={stops} pointLat="lat" pointLng="lng" pointColor={(point) => point.id === activeStop?.id ? '#ffd37a' : point.color} pointLabel="name" pointRadius={(point) => point.id === activeStop?.id ? 0.75 : 0.42} pointAltitude={0.035} labelsData={stops} labelLat="lat" labelLng="lng" labelText="shortName" labelColor={(point) => point.id === activeStop?.id ? '#ffd37a' : '#f8fbf5'} labelSize={0.7} labelDotRadius={0.18} labelAltitude={0.045} arcsData={arcs} arcColor="color" arcAltitude={(arc) => arc.type === 'journey' ? 0.28 : 0.08} arcStroke={(arc) => arc.type === 'journey' ? 0.65 : 0.35} arcDashLength={0.4} arcDashGap={0.22} arcDashAnimateTime={1700} animateIn /></Suspense></div>;
-}
-
-function RouteTour({ open, onClose, trip, journey }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const origin = trip?.origin; const destination = trip?.destination; const places = trip?.places || [];
-  const stops = useMemo(() => !origin || !destination || !journey ? [] : [
-    { id: 'origin', name: `${origin.name} departure`, shortName: origin.iata, lat: origin.lat, lng: origin.lng, kind: 'origin', color: '#ff8268', detail: journey.transport?.departure || 'Departure time unavailable' },
-    { id: 'arrival', name: `${destination.name} arrival`, shortName: destination.iata, lat: destination.lat, lng: destination.lng, kind: 'arrival', color: '#b7efd7', detail: journey.transport?.arrival || 'Arrival time unavailable' },
-    { id: 'hotel', name: journey.hotel.name, shortName: 'STAY', lat: destination.lat + 0.025, lng: destination.lng + 0.025, kind: 'hotel', color: '#ffd37a', detail: journey.hotel.location || destination.name, url: journey.hotel.sourceUrl },
-    ...places.map((place, index) => ({ ...place, id: `place-${index}`, shortName: String(index + 1).padStart(2, '0'), kind: 'attraction', color: '#8ddac5', detail: place.category })),
-  ], [origin, destination, journey, places]);
-  useEffect(() => { if (open) { setActiveIndex(0); setPlaying(false); } }, [open, journey?.id]);
-  useEffect(() => { if (!playing || !stops.length) return undefined; const timer = window.setInterval(() => setActiveIndex((index) => (index + 1) % stops.length), 4200); return () => window.clearInterval(timer); }, [playing, stops.length]);
-  useEffect(() => { if (!open) return undefined; const escape = (event) => event.key === 'Escape' && onClose(); document.addEventListener('keydown', escape); document.body.classList.add('modal-open'); return () => { document.removeEventListener('keydown', escape); document.body.classList.remove('modal-open'); }; }, [open, onClose]);
-  if (!open || !journey || !trip || !stops.length) return null;
-  const active = stops[activeIndex]; const move = (delta) => setActiveIndex((index) => (index + delta + stops.length) % stops.length);
-  return <div className="route-globe-modal" role="dialog" aria-modal="true" aria-labelledby="route-tour-title" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="route-globe-shell guided-tour-shell"><div className="route-globe-head"><div><span className="eyebrow">GUIDED ROUTE / {origin.iata} → {destination.iata}</span><h2 id="route-tour-title">Follow the trip, stop by stop.</h2></div><button className="globe-close" type="button" onClick={onClose} aria-label="Close guided route"><X /></button></div><div className="route-globe-grid"><div className="route-globe-visual"><InteractiveRouteGlobe origin={origin} destination={destination} stops={stops} activeStop={active} /><div className="tour-controls"><button type="button" onClick={() => move(-1)} aria-label="Previous stop"><ChevronLeft /></button><button className="tour-play" type="button" onClick={() => setPlaying((value) => !value)}>{playing ? <><Pause /> Pause tour</> : <><Play /> Play tour</>}</button><button type="button" onClick={() => move(1)} aria-label="Next stop"><ChevronRight /></button></div><div className="globe-caption"><span><i className="live-dot" /> Drag and zoom at any time</span><span>{activeIndex + 1} / {stops.length}</span></div></div><div className="route-globe-info"><div className="tour-active-card"><span className="eyebrow">{active.kind} / stop {String(activeIndex + 1).padStart(2, '0')}</span><h3>{active.name}</h3><p>{active.detail}</p>{active.url && <a href={active.url} target="_blank" rel="noreferrer">Open source <ArrowUpRight /></a>}</div>{trip.ai?.enabled ? <div className="ai-route-note"><Sparkles /><div><span>AI trip note / {trip.ai.model}</span><p>{trip.ai.summary}</p><small>{trip.ai.recommendation_reason}</small></div></div> : <div className="ai-route-note offline"><WifiOff /><div><span>Trip guide is still loading</span><p>{trip.ai?.message || 'The real travel options and places already found are still available.'}</p></div></div>}<div className="tour-stop-list" aria-label="Tour stops">{stops.map((stop, index) => <button type="button" className={activeIndex === index ? 'active' : ''} onClick={() => setActiveIndex(index)} key={stop.id}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{stop.name}</strong><small>{stop.detail}</small></div><ArrowRight /></button>)}</div><div className="tour-price-summary"><span>Current trip total</span><strong>{journey.totalText}</strong>{journey.breakdown.map((row) => <a href={row.url || '#'} target="_blank" rel="noreferrer" key={row.label}><span>{row.label}</span><b>{formatInr(row.amountInr)}</b></a>)}</div></div></div></div></div>;
-}
-
 function PipelineSection({ job, health }) {
   const sources = job?.result?.sources || Object.entries(health?.collectors || {}).map(([key, source]) => ({ key, ...source, status: health?.brightData ? 'standby' : 'failed', rows: null }));
   return <section className="network-section" id="network"><div className="network-shade" /><div className="network-grid" aria-hidden="true" /><div className="network-inner section-shell"><div className="network-topline"><span><Route /> Live price sources</span><span>{health?.brightData ? <><Wifi /> Connected</> : <><WifiOff /> Unavailable</>}</span></div><div className="network-copy" id="pipeline"><p className="eyebrow">Prices you can verify</p><h2>Real options,<br />clearly compared.</h2><p>Every price keeps a link to the travel site where it was found. If a site has not replied yet, TripWeave keeps updating the page instead of making up an answer.</p></div><div className="source-table"><div className="source-table-head"><span>Mode</span><span>Website</span><span>Options</span><span>Status</span></div>{sources.map((source) => <div className="source-line" key={source.key}><strong>{String(source.kind || 'source').toUpperCase()}</strong><span>{source.label}</span><span>{source.rows ?? 'Waiting'}</span><span className={`state ${collectorState(source.status)}`}><i />{collectorState(source.status)}</span></div>)}<div className="source-line ai-source-line"><strong>TRIP GUIDE</strong><span>{health?.geminiModel || 'Gemini'}</span><span>uses found options</span><span className={`state ${health?.gemini ? 'healthy' : 'standby'}`}><i />{health?.gemini ? 'ready' : 'key needed'}</span></div></div></div></section>;
@@ -327,5 +293,5 @@ export default function App() {
     return () => { context?.revert(); cancelAnimationFrame(rafId); lenis.destroy(); };
   }, []);
   const isTripPage = /^\/trip\//.test(pathname);
-  return <><Navigation job={activeTripJob || job} />{isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}<Footer /><RouteTour open={Boolean(tourJourney)} onClose={() => setTourJourney(null)} trip={activeTripJob?.result} journey={tourJourney} /></>;
+  return <><Navigation job={activeTripJob || job} />{isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}<Footer />{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
 }

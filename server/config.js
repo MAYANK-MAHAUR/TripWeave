@@ -9,7 +9,7 @@ export const COLLECTORS = {
   redBus: { id: 'c_mt1kvbvy1jp1i1waqf', kind: 'bus', label: 'redBus', enabled: true },
   booking: { id: 'c_mt1gsvms2n4aypgvl9', kind: 'hotel', label: 'Booking.com', enabled: true, timeoutMs: 180000 },
   expedia: { id: 'c_mt1han2523l6qju6c4', kind: 'hotel', label: 'Expedia', enabled: true, timeoutMs: 180000 },
-  tripAdvisor: { id: 'c_mt1hc6x0rqqlh3jzi', kind: 'hotel', label: 'TripAdvisor', enabled: true, composable: false, input: { max_pages: 5 }, timeoutMs: 60000, allowBatch: false },
+  tripAdvisor: { id: 'c_mt1hc6x0rqqlh3jzi', kind: 'hotel', label: 'TripAdvisor', enabled: true, composable: false, onDemand: true, input: { max_pages: 5 }, timeoutMs: 60000, allowBatch: false },
 };
 
 const credentialPath = () => process.env.BRIGHT_DATA_CREDENTIALS_PATH

@@ -6,17 +6,20 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { COLLECTORS, configStatus, getBrightDataKey } from './config.js';
 import { runCollector } from './brightdata.js';
-import { resolveLocation, findAttractions, findTripAdvisorLocationId } from './locations.js';
+import { resolveLocation, resolveHotelLocation, findAttractions, findTripAdvisorLocationId } from './locations.js';
 import { buildCollectorUrls, normalizeTripQuery } from './urls.js';
 import { normalizeCollectorResults } from './normalize.js';
 import { enrichWithGemini } from './gemini.js';
+import { buildTourPayload } from './tour.js';
+import { selectCollectorsForRoute } from './collectorPolicy.js';
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
 const jobs = new Map();
 const cache = new Map();
+const terminalStatuses = new Set(['ready', 'partial', 'error']);
 const pipelineVersion = 2;
-const cacheTtlMs = 15 * 60 * 1000;
+const cacheTtlMs = Number(process.env.TRIP_CACHE_TTL_MS || 6 * 60 * 60 * 1000);
 const tripHistoryTtlMs = 24 * 60 * 60 * 1000;
 const cacheDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.cache');
 fs.mkdirSync(cacheDirectory, { recursive: true });
@@ -39,7 +42,8 @@ app.use(express.json({ limit: '250kb' }));
 const publicJob = (job) => ({
   id: job.id, status: job.status, stage: job.stage, progress: job.progress,
   createdAt: job.createdAt, updatedAt: job.updatedAt, error: job.error,
-  query: job.query, locations: job.locations, collectors: job.collectors, result: job.result,
+  query: job.query, options: job.options, creditPolicy: job.creditPolicy,
+  locations: job.locations, collectors: job.collectors, result: job.result,
 });
 
 const updateJob = (job, patch) => {
@@ -73,11 +77,21 @@ async function executeTrip(job) {
     const [origin, destination] = await Promise.all([resolveLocation(job.query.from), resolveLocation(job.query.to)]);
     job.locations = { origin, destination };
     const placesPromise = findAttractions(destination).catch(() => []);
-    const tripAdvisorLocationId = await findTripAdvisorLocationId(destination.name || job.query.to);
+    const tripAdvisorLocationId = job.options?.includeReferenceSources ? await findTripAdvisorLocationId(destination.name || job.query.to) : null;
     const urls = buildCollectorUrls(job.query, origin, destination, { tripAdvisorLocationId });
     updateJob(job, { stage: 'Triggering live travel collectors', progress: 18 });
 
-    const enabledCollectors = Object.entries(COLLECTORS).filter(([, definition]) => definition.enabled);
+    const collectorSelection = selectCollectorsForRoute(COLLECTORS, origin, destination, job.options);
+    job.creditPolicy = {
+      mode: 'credit_aware',
+      routeDistanceKm: collectorSelection.distanceKm,
+      longDistance: collectorSelection.longDistance,
+      crossBorderLongDistance: collectorSelection.crossBorderLongDistance,
+      triggeredCollectors: collectorSelection.entries.map(([key]) => key),
+      skippedCollectors: collectorSelection.skipped,
+      cacheHours: Math.round(cacheTtlMs / 3600000),
+    };
+    const enabledCollectors = collectorSelection.entries;
     const collectorTasks = buildCollectorTasks(enabledCollectors, urls);
     collectorTasks.forEach((task) => {
       job.collectors[task.key] = { key: task.key, collectorKey: task.collectorKey, label: task.definition.label, sourceLabel: task.definition.sourceLabel, tripLeg: task.definition.tripLeg, status: task.url ? 'standby' : 'skipped', url: task.url || null, error: task.url ? null : 'A compatible destination page could not be resolved.' };
@@ -100,6 +114,7 @@ async function executeTrip(job) {
         const result = {
           ...normalized,
           pipelineVersion,
+          creditPolicy: job.creditPolicy,
           streaming: true,
           settledSources: snapshot.length,
           totalSources: collectorTasks.length,
@@ -129,7 +144,7 @@ async function executeTrip(job) {
     const ai = await enrichWithGemini({ ...normalized, places });
     const selectedTourNames = new Set(ai.tour_stop_names || []);
     const tourPlaces = selectedTourNames.size ? places.filter((place) => selectedTourNames.has(place.name)) : places.slice(0, 4);
-    const result = { ...normalized, pipelineVersion, streaming: false, settledSources: results.length, totalSources: collectorTasks.length, places: tourPlaces, allPlaces: places, ai };
+    const result = { ...normalized, pipelineVersion, creditPolicy: job.creditPolicy, streaming: false, settledSources: results.length, totalSources: collectorTasks.length, places: tourPlaces, allPlaces: places, ai };
     const partial = !normalized.journeys.length || normalized.journeys.every((journey) => !journey.coverage.complete);
     updateJob(job, { status: partial ? 'partial' : 'ready', stage: partial ? 'Ready with transparent gaps' : 'Trip ready', progress: 100, result });
     const cachedJob = { schemaVersion: pipelineVersion, at: Date.now(), result: publicJob(job) };
@@ -149,13 +164,22 @@ app.post('/api/trips', (request, response) => {
   try {
     const query = normalizeTripQuery(request.body);
     if (!query.from || !query.to) throw new Error('Enter both origin and destination.');
-    const cacheKey = JSON.stringify(query);
+    const options = { includeReferenceSources: request.body?.includeReferenceSources === true };
+    const forceRefresh = request.body?.forceRefresh === true;
+    const cacheKey = options.includeReferenceSources ? JSON.stringify({ query, includeReferenceSources: true }) : JSON.stringify(query);
+    if (!forceRefresh) {
+      const reusableJob = [...jobs.values()].find((candidate) => candidate.cacheKey === cacheKey
+        && candidate.status !== 'error'
+        && (!terminalStatuses.has(candidate.status) || Date.now() - new Date(candidate.updatedAt).getTime() < cacheTtlMs));
+      if (reusableJob) return response.status(terminalStatuses.has(reusableJob.status) ? 200 : 202).json({ ...publicJob(reusableJob), reused: true, creditSaved: true });
+    }
     let cached = cache.get(cacheKey);
     if (!cached) {
       try { cached = JSON.parse(fs.readFileSync(cachePath(cacheKey), 'utf8')); } catch { cached = null; }
+      if (cached) cache.set(cacheKey, cached);
     }
-    if (cached && isCurrentCache(cached) && Date.now() - cached.at < cacheTtlMs) return response.status(200).json({ ...cached.result, cached: true });
-    const job = { id: crypto.randomUUID(), cacheKey, query, status: 'queued', stage: 'Queued', progress: 0, collectors: {}, locations: null, result: null, error: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    if (!forceRefresh && cached && isCurrentCache(cached) && Date.now() - cached.at < cacheTtlMs) return response.status(200).json({ ...cached.result, cached: true, creditSaved: true });
+    const job = { id: crypto.randomUUID(), cacheKey, query, options, creditPolicy: null, status: 'queued', stage: 'Queued', progress: 0, collectors: {}, locations: null, result: null, error: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     jobs.set(job.id, job);
     executeTrip(job);
     return response.status(202).json(publicJob(job));
@@ -168,6 +192,22 @@ app.get('/api/trips/:id', (request, response) => {
   const job = jobs.get(request.params.id) || cachedJobById(request.params.id);
   if (!job) return response.status(404).json({ error: 'Trip job not found.' });
   return response.json(job.result !== undefined && job.createdAt ? publicJob(job) : job);
+});
+
+app.get('/api/trips/:id/tour/:journeyId', async (request, response) => {
+  const job = jobs.get(request.params.id) || cachedJobById(request.params.id);
+  const publicRecord = job?.result !== undefined && job?.createdAt ? publicJob(job) : job;
+  if (!publicRecord) return response.status(404).json({ error: 'Trip job not found.' });
+  if (!publicRecord.result) return response.status(409).json({ error: 'Trip options are still being collected.' });
+  const journey = publicRecord.result.journeys?.find((item) => item.id === request.params.journeyId);
+  if (!journey) return response.status(404).json({ error: 'Trip plan not found.' });
+  try {
+    const destination = publicRecord.result.destination || publicRecord.locations?.destination;
+    const hotelLocation = await resolveHotelLocation(journey.hotel, destination);
+    return response.json(buildTourPayload({ job: publicRecord, journey, hotelLocation }));
+  } catch (error) {
+    return response.status(500).json({ error: error.message || 'The guided route could not be prepared.' });
+  }
 });
 
 app.delete('/api/trips/:id', (request, response) => {

@@ -118,7 +118,8 @@ function normalizeHotel(row, result, rates, nights) {
   return {
     id: crypto.createHash('sha1').update(`${result.key}-${name}-${amount}-${url}`).digest('hex').slice(0, 12),
     kind: 'hotel', name, location: text(first(row.location, row.address, row.area)),
-    rating: number(row.rating), reviewCount: number(row.review_count), roomType: text(row.room_type),
+    rating: number(row.rating), ratingScale: (result.collectorKey || result.key) === 'tripAdvisor' ? 5 : 10,
+    reviewCount: number(row.review_count), roomType: text(row.room_type),
     cancellation: text(row.cancellation_policy), amenities: Array.isArray(row.amenities) ? row.amenities.map(text).filter(Boolean) : [],
     imageUrl: absoluteUrl(row.image_url, result.url), amount, currency: code, amountInr,
     nightlyAmountInr: toInr(nightlyAmount, code, rates), priceText: text(first(row.price_text, typeof chosen === 'string' ? chosen : null)) || formatInr(amountInr),

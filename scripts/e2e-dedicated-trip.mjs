@@ -17,6 +17,7 @@ assert.ok(selectedCache, 'Run one real trip first, or set TRIPWEAVE_TEST_TRIP_ID
 const knownTripId = selectedCache.result.id;
 const knownQuery = selectedCache.result.query;
 const knownDestination = selectedCache.result.result.destination;
+const knownHotel = selectedCache.result.result.journeys[0].hotel.name;
 const expectedJourneys = selectedCache.result.result.journeys.length;
 const canReuseFormCache = Date.now() - selectedCache.at < 14 * 60 * 1000;
 
@@ -24,7 +25,10 @@ const browser = await chromium.launch({ headless: true });
 const browserMessages = [];
 const watchPage = (page) => {
   page.on('pageerror', (error) => browserMessages.push(`pageerror: ${error.message}`));
-  page.on('requestfailed', (request) => browserMessages.push(`requestfailed: ${request.url()} / ${request.failure()?.errorText || 'unknown'}`));
+  page.on('requestfailed', (request) => {
+    const expectedCancellation = request.failure()?.errorText === 'net::ERR_ABORTED';
+    if (!expectedCancellation) browserMessages.push(`requestfailed: ${request.url()} / ${request.failure()?.errorText || 'unknown'}`);
+  });
   page.on('console', (message) => {
     if (['error', 'warning'].includes(message.type()) && !/GL Driver Message/.test(message.text())) browserMessages.push(`${message.type()}: ${message.text()}`);
   });
@@ -79,13 +83,22 @@ try {
     assert.match(kayakHref || '', /kayak\.com\/flights\//, 'KAYAK plans must link to the stable route search page.');
     assert.doesNotMatch(kayakHref || '', /\/book\/flight/, 'Ephemeral KAYAK booking links must never reach the UI.');
   }
-  await desktop.getByRole('button', { name: 'View route on globe' }).click();
-  await desktop.locator('canvas').waitFor({ timeout: 20_000 });
-  await desktop.getByRole('button', { name: 'Next stop' }).click();
-  await desktop.getByRole('heading', { name: `${knownDestination.name} arrival` }).waitFor();
-  await desktop.waitForTimeout(3000);
+  await desktop.getByRole('button', { name: 'Start guided trip' }).click();
+  await desktop.locator('.route-tour-overlay').waitFor();
+  await desktop.locator('.tour-globe-scene canvas').waitFor({ timeout: 20_000 });
+  const tourBox = await desktop.locator('.route-tour-overlay').boundingBox();
+  assert.ok(tourBox && tourBox.x === 0 && tourBox.y === 0 && Math.round(tourBox.width) === 1440 && Math.round(tourBox.height) === 960, 'The guided trip must occupy the complete viewport.');
+  const stageButtons = desktop.locator('.tour-stage-dots button');
+  const hotelStageIndex = await stageButtons.evaluateAll((buttons, hotelName) => buttons.findIndex((button) => (button.getAttribute('aria-label') || '').includes(hotelName)), knownHotel);
+  assert.ok(hotelStageIndex >= 0, 'The guided trip must include a hotel stage.');
+  await stageButtons.nth(hotelStageIndex).click({ force: true });
+  await desktop.locator('.tour-map-canvas canvas').waitFor({ timeout: 20_000 });
+  await desktop.locator('.tour-hotel-card').waitFor();
+  assert.equal(await desktop.locator('.tour-hotel-card img').count(), 1, 'The selected hotel must have a visual preview.');
+  assert.ok(await desktop.getByText(/Matched hotel location|Approximate hotel area/).isVisible(), 'The hotel location accuracy must be visible.');
   await desktop.screenshot({ path: `${outputDirectory}/guided-route-desktop.png`, fullPage: false });
-  await desktop.getByRole('button', { name: 'Close guided route' }).click();
+  await desktop.keyboard.press('Escape');
+  await desktop.locator('.route-tour-overlay').waitFor({ state: 'detached' });
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
   watchPage(mobile);
@@ -94,9 +107,32 @@ try {
   assert.ok((await mobile.evaluate(() => window.scrollY)) < 5, 'A direct mobile trip URL must open at the top.');
   assert.equal(await mobile.locator('.hero').count(), 0, 'The landing hero must stay off the mobile trip page.');
   await mobile.screenshot({ path: `${outputDirectory}/trip-page-mobile.png`, fullPage: false });
+  await mobile.locator('.trip-row').first().click();
+  await mobile.getByRole('button', { name: 'Start guided trip' }).click();
+  await mobile.locator('.route-tour-overlay').waitFor();
+  const mobileTourBox = await mobile.locator('.route-tour-overlay').boundingBox();
+  assert.ok(mobileTourBox && Math.round(mobileTourBox.width) === 390 && Math.round(mobileTourBox.height) === 844, 'The mobile tour must remain inside the viewport.');
+  const mobileHotelStage = mobile.locator('.tour-stage-dots button').filter({ has: mobile.locator('span', { hasText: 'hotel' }) });
+  await mobileHotelStage.click({ force: true });
+  await mobile.locator('.tour-hotel-card').waitFor();
+  await mobile.locator('.tour-scene-map .tour-visual-loading').waitFor({ state: 'hidden', timeout: 20_000 });
+  await mobile.screenshot({ path: `${outputDirectory}/guided-route-mobile.png`, fullPage: false });
+  await mobile.getByRole('button', { name: 'Close guided route' }).click();
+
+  const reduced = await browser.newPage({ viewport: { width: 1100, height: 760 }, reducedMotion: 'reduce' });
+  watchPage(reduced);
+  await reduced.goto(`${baseUrl}/trip/${knownTripId}`, { waitUntil: 'networkidle' });
+  await reduced.locator('.trip-row').first().click();
+  await reduced.getByRole('button', { name: 'Start guided trip' }).click();
+  await reduced.locator('.tour-play-toggle').filter({ hasText: 'Next stop' }).waitFor();
+  const reducedStage = await reduced.locator('.tour-step-label').innerText();
+  await reduced.waitForTimeout(1200);
+  assert.equal(await reduced.locator('.tour-step-label').innerText(), reducedStage, 'Reduced-motion mode must not autoplay animated stages.');
+  await reduced.keyboard.press('Escape');
+  await reduced.close();
 
   assert.deepEqual(browserMessages, [], `Browser emitted errors or warnings:\n${browserMessages.join('\n')}`);
-  console.log(JSON.stringify({ ok: true, tripUrl: desktop.url(), formNavigationTested: canReuseFormCache, desktopJourneys: expectedJourneys, globeCanvas: true, mobile: true }, null, 2));
+  console.log(JSON.stringify({ ok: true, tripUrl: desktop.url(), formNavigationTested: canReuseFormCache, desktopJourneys: expectedJourneys, globeCanvas: true, localMapCanvas: true, hotelReveal: true, mobile: true }, null, 2));
 } finally {
   await browser.close();
 }
