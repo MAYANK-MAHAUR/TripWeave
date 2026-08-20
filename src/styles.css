@@ -97,6 +97,16 @@ img { display: block; max-width: 100%; }
 .scroll-cue { align-items: center; bottom: 35px; display: flex; font: 500 9px var(--mono); gap: 9px; letter-spacing: .12em; position: absolute; right: clamp(20px, 4vw, 64px); text-transform: uppercase; }
 .scroll-cue svg { height: 14px; width: 14px; }
 
+/* The radar hero sits over orbital imagery, so its information layer stays luminous. */
+.hero { color: var(--white); }
+.hero-title { color: var(--white); }
+.outline-word { -webkit-text-stroke-color: rgba(255,255,255,.72); }
+.hero-bottom { border-top-color: rgba(255,255,255,.48); }
+.hero-thesis { color: var(--white); }
+.hero-problem, .hero-status span, .text-link, .scroll-cue { color: rgba(255,255,255,.68); }
+.hero-status strong { color: var(--white); }
+.hero-status div { border-left-color: rgba(255,255,255,.55); }
+
 .section-shell { padding-left: clamp(20px, 4vw, 64px); padding-right: clamp(20px, 4vw, 64px); }
 .statement { display: grid; gap: 0 clamp(24px, 4vw, 70px); grid-template-columns: minmax(130px, 1.05fr) minmax(0, 4fr) minmax(175px, 1.45fr); padding-bottom: 0; padding-top: clamp(100px, 14vw, 190px); }
 .section-index { color: var(--muted); display: flex; flex-direction: column; font: 500 10px var(--mono); gap: 11px; letter-spacing: .12em; text-transform: uppercase; }
