@@ -62,6 +62,11 @@ function rowsFrom(payload, kind) {
   return rows.filter((row) => row && typeof row === 'object' && !row.error);
 }
 
+export function stableTransportSourceUrl(row, result) {
+  const scrapedUrl = absoluteUrl(first(row.booking_url, row.source_url), result.url);
+  return (result.collectorKey || result.key) === 'kayak' ? result.url : scrapedUrl;
+}
+
 function normalizeTransport(row, result, rates, origin, destination) {
   const priceValue = first(row.total_price, row.price, row.price_value, row.price_text, row.estimated_price_value, row.estimated_price_text);
   const code = currency(row, priceValue, result.key === 'redBus' ? 'INR' : null);
@@ -71,20 +76,31 @@ function normalizeTransport(row, result, rates, origin, destination) {
   const departure = text(first(row.departure_datetime, row.departure_time_outbound, row.outbound_departure_time, row.departure_time, row.departure));
   const arrival = text(first(row.arrival_datetime, row.arrival_time_outbound, row.outbound_arrival_time, row.arrival_time, row.arrival));
   const duration = text(first(row.duration, row.duration_outbound, row.outbound_duration));
-  const url = absoluteUrl(first(row.booking_url, row.source_url), result.url);
-  const operator = text(first(row.airline, row.operator, row.bus_name, row.provider, row.company)) || result.label;
+  const returnDeparture = text(first(row.return_departure_datetime, row.departure_time_return, row.return_departure_time));
+  const returnArrival = text(first(row.return_arrival_datetime, row.arrival_time_return, row.return_arrival_time));
+  const returnDuration = text(first(row.return_duration, row.duration_return));
+  const url = stableTransportSourceUrl(row, result);
+  const operator = text(first(row.airline, row.operator, row.bus_name, row.provider, row.company)) || result.sourceLabel || result.label;
+  const isReturn = result.tripLeg === 'return';
+  const fallbackOrigin = isReturn ? destination : origin;
+  const fallbackDestination = isReturn ? origin : destination;
   return {
     id: crypto.createHash('sha1').update(`${result.key}-${operator}-${departure}-${arrival}-${amount}-${url}`).digest('hex').slice(0, 12),
     kind: 'transport', mode, operator,
+    tripLeg: result.tripLeg || 'outbound',
     serviceNumber: text(first(row.flight_number, row.service_or_flight_number, row.bus_name)),
-    origin: text(first(row.origin, row.departure_airport_outbound, row.departure_airport, row.departure_station, row.departure)) || origin.iata,
-    destination: text(first(row.destination, row.arrival_airport_outbound, row.arrival_airport, row.arrival_station, row.arrival)) || destination.iata,
+    origin: text(first(row.origin, row.departure_airport_outbound, row.departure_airport, row.departure_station, row.departure)) || fallbackOrigin.iata,
+    destination: text(first(row.destination, row.arrival_airport_outbound, row.arrival_airport, row.arrival_station, row.arrival)) || fallbackDestination.iata,
     departure, arrival, duration, durationMinutes: durationMinutes(duration),
     stops: text(first(row.stops, row.stops_outbound, row.outbound_stops, row.transfers, row.changes)),
+    returnOrigin: text(first(row.departure_airport_return, row.return_origin)) || destination.iata,
+    returnDestination: text(first(row.arrival_airport_return, row.return_destination)) || origin.iata,
+    returnDeparture, returnArrival, returnDuration, returnDurationMinutes: durationMinutes(returnDuration),
+    returnStops: text(first(row.stops_return, row.return_stops)),
     className: text(first(row.cabin_class, row.class, row.bus_type)),
     seats: text(row.seats_available), rating: number(row.rating),
     amount, currency: code, amountInr, priceText: text(first(row.price_text, typeof priceValue === 'string' ? priceValue : null)) || formatInr(amountInr),
-    source: result.label, sourceUrl: url, collectorKey: result.key,
+    source: result.sourceLabel || result.label, sourceTask: result.label, sourceUrl: url, collectorKey: result.collectorKey || result.key,
   };
 }
 
@@ -102,28 +118,112 @@ function normalizeHotel(row, result, rates, nights) {
   return {
     id: crypto.createHash('sha1').update(`${result.key}-${name}-${amount}-${url}`).digest('hex').slice(0, 12),
     kind: 'hotel', name, location: text(first(row.location, row.address, row.area)),
-    rating: number(row.rating), reviewCount: number(row.review_count), roomType: text(row.room_type),
+    rating: number(row.rating), ratingScale: (result.collectorKey || result.key) === 'tripAdvisor' ? 5 : 10,
+    reviewCount: number(row.review_count), roomType: text(row.room_type),
     cancellation: text(row.cancellation_policy), amenities: Array.isArray(row.amenities) ? row.amenities.map(text).filter(Boolean) : [],
     imageUrl: absoluteUrl(row.image_url, result.url), amount, currency: code, amountInr,
     nightlyAmountInr: toInr(nightlyAmount, code, rates), priceText: text(first(row.price_text, typeof chosen === 'string' ? chosen : null)) || formatInr(amountInr),
-    taxesText: text(row.taxes_text), source: result.label, sourceUrl: url, collectorKey: result.key,
+    taxesText: text(row.taxes_text), source: result.label, sourceUrl: url, collectorKey: result.key, composable: result.composable !== false,
   };
 }
 
 const uniqueBy = (items, getKey) => Array.from(new Map(items.map((item) => [getKey(item), item])).values());
 const readableDuration = (minutes) => Number.isFinite(minutes) ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : 'Duration unavailable';
 
+const hasReturnDetails = (transport) => Boolean(transport.returnDeparture || transport.returnArrival || transport.returnDuration || transport.returnStops);
+
+function embeddedReturnLeg(transport) {
+  if (!hasReturnDetails(transport)) return null;
+  return {
+    ...transport,
+    id: `${transport.id}-return`,
+    tripLeg: 'return',
+    origin: transport.returnOrigin,
+    destination: transport.returnDestination,
+    departure: transport.returnDeparture,
+    arrival: transport.returnArrival,
+    duration: transport.returnDuration,
+    durationMinutes: transport.returnDurationMinutes,
+    stops: transport.returnStops,
+    amountInr: null,
+    priceText: null,
+  };
+}
+
+function makeTransportItinerary(outbound, returnLeg = null, combinedPrice = false) {
+  const paired = Boolean(returnLeg);
+  const amountInr = combinedPrice ? outbound.amountInr : outbound.amountInr + (returnLeg?.amountInr || 0);
+  const durationValues = [outbound.durationMinutes, returnLeg?.durationMinutes].filter(Number.isFinite);
+  const durationMinutesTotal = durationValues.length ? durationValues.reduce((sum, value) => sum + value, 0) : null;
+  const sources = uniqueBy([outbound.source, returnLeg?.source].filter(Boolean), (value) => value);
+  return {
+    id: `${outbound.id}-${returnLeg?.id || 'return-missing'}`,
+    mode: outbound.mode,
+    operator: returnLeg && returnLeg.operator !== outbound.operator ? `${outbound.operator} / ${returnLeg.operator}` : outbound.operator,
+    tripLeg: paired ? 'roundtrip' : 'outbound',
+    origin: outbound.origin,
+    destination: outbound.destination,
+    departure: outbound.departure,
+    arrival: outbound.arrival,
+    durationMinutes: durationMinutesTotal,
+    amountInr,
+    priceText: combinedPrice ? outbound.priceText : formatInr(amountInr),
+    source: sources.join(' + '),
+    sources,
+    sourceUrl: outbound.sourceUrl || returnLeg?.sourceUrl,
+    collectorKey: outbound.collectorKey,
+    outbound,
+    return: returnLeg,
+    combinedPrice,
+    missing: paired ? [] : ['return transport'],
+  };
+}
+
+export function pairRoundTripTransports(transports) {
+  const priced = transports.filter((item) => Number.isFinite(item.amountInr) && item.amountInr > 0);
+  const itineraries = priced
+    .filter((item) => item.tripLeg === 'roundtrip')
+    .map((item) => makeTransportItinerary(item, embeddedReturnLeg(item), true));
+  const outbounds = priced.filter((item) => item.tripLeg !== 'roundtrip' && item.tripLeg !== 'return');
+  const returns = priced.filter((item) => item.tripLeg === 'return');
+  const groups = new Map();
+  outbounds.forEach((item) => {
+    const key = `${item.collectorKey}-${item.mode}`;
+    groups.set(key, { outbounds: [...(groups.get(key)?.outbounds || []), item], returns: groups.get(key)?.returns || [] });
+  });
+  returns.forEach((item) => {
+    const key = `${item.collectorKey}-${item.mode}`;
+    groups.set(key, { outbounds: groups.get(key)?.outbounds || [], returns: [...(groups.get(key)?.returns || []), item] });
+  });
+  for (const group of groups.values()) {
+    const outwardOptions = group.outbounds.sort((a, b) => a.amountInr - b.amountInr).slice(0, 4);
+    const returnOptions = group.returns.sort((a, b) => a.amountInr - b.amountInr).slice(0, 4);
+    if (!returnOptions.length) itineraries.push(...outwardOptions.map((outbound) => makeTransportItinerary(outbound)));
+    else {
+      const combinations = outwardOptions.flatMap((outbound) => returnOptions.map((returnLeg) => makeTransportItinerary(outbound, returnLeg)));
+      itineraries.push(...combinations.sort((a, b) => a.amountInr - b.amountInr).slice(0, 8));
+    }
+  }
+  return itineraries.sort((a, b) => a.amountInr - b.amountInr);
+}
+
 function composeJourneys(transports, hotels, query, origin, destination) {
-  const pricedTransportPool = transports.filter((item) => Number.isFinite(item.amountInr) && item.amountInr > 0).sort((a, b) => a.amountInr - b.amountInr);
+  const pricedTransportPool = pairRoundTripTransports(transports);
   const transportGroups = new Map();
-  pricedTransportPool.forEach((item) => { const key = `${item.mode}-${item.source}`; transportGroups.set(key, [...(transportGroups.get(key) || []), item]); });
+  pricedTransportPool.forEach((item) => { const key = `${item.mode}-${item.collectorKey}`; transportGroups.set(key, [...(transportGroups.get(key) || []), item]); });
   const pricedTransport = Array.from(transportGroups.values()).flatMap((items) => items.slice(0, 4));
-  const pricedHotels = hotels.filter((item) => Number.isFinite(item.amountInr) && item.amountInr > 0).sort((a, b) => a.amountInr - b.amountInr).slice(0, 7);
+  const pricedHotels = hotels.filter((item) => item.composable && Number.isFinite(item.amountInr) && item.amountInr > 0).sort((a, b) => a.amountInr - b.amountInr).slice(0, 7);
   const candidates = [];
   for (const transport of pricedTransport) {
     for (const hotel of pricedHotels) {
       const totalInr = transport.amountInr + hotel.amountInr;
-      const missing = transport.mode === 'Cab' ? [] : ['local transfer'];
+      const missing = uniqueBy([...transport.missing, ...(transport.mode === 'Cab' ? [] : ['local transfer'])], (value) => value);
+      const transportBreakdown = transport.combinedPrice
+        ? [{ label: `Round trip ${transport.mode} · ${transport.operator}`, amountInr: transport.amountInr, text: transport.priceText, source: transport.source, url: transport.sourceUrl }]
+        : [
+          { label: `Outbound ${transport.mode} · ${transport.outbound.operator}`, amountInr: transport.outbound.amountInr, text: transport.outbound.priceText, source: transport.outbound.source, url: transport.outbound.sourceUrl },
+          ...(transport.return ? [{ label: `Return ${transport.return.mode} · ${transport.return.operator}`, amountInr: transport.return.amountInr, text: transport.return.priceText, source: transport.return.source, url: transport.return.sourceUrl }] : []),
+        ];
       candidates.push({
         id: `${transport.id}-${hotel.id}`,
         label: `${transport.mode} + ${hotel.name}`,
@@ -133,19 +233,23 @@ function composeJourneys(transports, hotels, query, origin, destination) {
         durationMinutes: transport.durationMinutes,
         durationText: readableDuration(transport.durationMinutes),
         modes: uniqueBy([transport.mode, 'Hotel'], (value) => value),
-        sources: uniqueBy([transport.source, hotel.source], (value) => value),
+        sources: uniqueBy([...transport.sources, hotel.source], (value) => value),
         sourceUrl: transport.sourceUrl || hotel.sourceUrl,
         coverage: { complete: missing.length === 0, missing },
         confidence: Math.max(55, Math.min(98, 62 + (transport.amountInr ? 12 : 0) + (hotel.amountInr ? 12 : 0) + (transport.departure ? 5 : 0) + (hotel.rating ? 4 : 0) - missing.length * 6)),
-        note: `${transport.operator} with ${hotel.name}. ${missing.length ? `Still missing a live ${missing.join(', ')} quote.` : 'All priced legs are covered.'}`,
+        note: `${transport.operator} with ${hotel.name}. ${missing.length ? `Still missing a live ${missing.join(', ')} quote.` : 'Outbound, return and stay prices are covered.'}`,
         breakdown: [
-          { label: `${transport.mode} · ${transport.operator}`, amountInr: transport.amountInr, text: transport.priceText, source: transport.source, url: transport.sourceUrl },
+          ...transportBreakdown,
           { label: `${hotel.name} · stay`, amountInr: hotel.amountInr, text: hotel.priceText, source: hotel.source, url: hotel.sourceUrl },
         ],
         timeline: [
-          { label: origin.iata, time: transport.departure, detail: `${transport.mode} · ${transport.operator}`, lat: origin.lat, lng: origin.lng, kind: 'transport', source: transport.source, url: transport.sourceUrl },
-          { label: destination.iata, time: transport.arrival, detail: transport.duration || transport.stops || 'Arrival', lat: destination.lat, lng: destination.lng, kind: 'arrival', source: transport.source, url: transport.sourceUrl },
+          { label: origin.iata, time: transport.outbound.departure, detail: `${transport.mode} · ${transport.outbound.operator}`, lat: origin.lat, lng: origin.lng, kind: 'transport', source: transport.outbound.source, url: transport.outbound.sourceUrl },
+          { label: destination.iata, time: transport.outbound.arrival, detail: transport.outbound.duration || transport.outbound.stops || 'Arrival', lat: destination.lat, lng: destination.lng, kind: 'arrival', source: transport.outbound.source, url: transport.outbound.sourceUrl },
           { label: hotel.name, time: query.departDate, detail: `${hotel.location || destination.name} · hotel`, lat: destination.lat, lng: destination.lng, kind: 'hotel', source: hotel.source, url: hotel.sourceUrl },
+          ...(transport.return ? [
+            { label: destination.iata, time: transport.return.departure || query.returnDate, detail: `Return ${transport.return.mode} · ${transport.return.operator}`, lat: destination.lat, lng: destination.lng, kind: 'transport', source: transport.return.source, url: transport.return.sourceUrl },
+            { label: origin.iata, time: transport.return.arrival, detail: transport.return.duration || transport.return.stops || 'Return arrival', lat: origin.lat, lng: origin.lng, kind: 'arrival', source: transport.return.source, url: transport.return.sourceUrl },
+          ] : []),
         ],
         transport,
         hotel,
@@ -171,9 +275,9 @@ export async function normalizeCollectorResults(results, context) {
     const rawRows = result.status === 'complete' ? rowsFrom(result.payload, result.kind) : [];
     if (result.kind === 'hotel') hotels.push(...rawRows.map((row) => normalizeHotel(row, result, rates, nights)).filter((item) => item.name));
     else transports.push(...rawRows.map((row) => normalizeTransport(row, result, rates, context.origin, context.destination)));
-    sources.push({ key: result.key, label: result.label, kind: result.kind, status: result.status, rows: rawRows.length, durationMs: result.durationMs, url: result.url, error: result.error || null });
+    sources.push({ key: result.key, collectorKey: result.collectorKey || result.key, label: result.label, sourceLabel: result.sourceLabel || result.label, tripLeg: result.tripLeg || null, kind: result.kind, composable: result.composable !== false, status: result.status, mode: result.mode || null, rows: rawRows.length, durationMs: result.durationMs, url: result.url, error: result.error || null });
   }
-  const cleanTransports = uniqueBy(transports.filter((item) => item.operator), (item) => `${item.mode}-${item.operator}-${item.departure}-${item.amountInr}`);
+  const cleanTransports = uniqueBy(transports.filter((item) => item.operator), (item) => `${item.collectorKey}-${item.tripLeg}-${item.mode}-${item.operator}-${item.departure}-${item.amountInr}`);
   const cleanHotels = uniqueBy(hotels, (item) => `${item.name}-${item.amountInr}`);
   const journeys = composeJourneys(cleanTransports, cleanHotels, context.query, context.origin, context.destination);
   const totals = journeys.map((journey) => journey.totalInr);

@@ -3,10 +3,13 @@ import path from 'node:path';
 
 export const COLLECTORS = {
   kayak: { id: 'c_mt1kuf7t24xwbky91k', kind: 'flight', label: 'KAYAK', enabled: true },
+  skyscanner: { id: 'c_mt1gvyy0zo7nkno1q', kind: 'flight', label: 'Skyscanner', enabled: true },
   omio: { id: 'c_mt1l31is2bxc0ik7xc', kind: 'route', label: 'Omio', enabled: true },
   twelveGo: { id: 'c_mt1kwgiug9ovbtk0m', kind: 'route', label: '12Go', enabled: true },
   redBus: { id: 'c_mt1kvbvy1jp1i1waqf', kind: 'bus', label: 'redBus', enabled: true },
-  expedia: { id: 'c_mt1han2523l6qju6c4', kind: 'hotel', label: 'Expedia', enabled: true, retries: 1, timeoutMs: 150000 },
+  booking: { id: 'c_mt1gsvms2n4aypgvl9', kind: 'hotel', label: 'Booking.com', enabled: true, timeoutMs: 180000 },
+  expedia: { id: 'c_mt1han2523l6qju6c4', kind: 'hotel', label: 'Expedia', enabled: true, timeoutMs: 180000 },
+  tripAdvisor: { id: 'c_mt1hc6x0rqqlh3jzi', kind: 'hotel', label: 'TripAdvisor', enabled: true, composable: false, onDemand: true, input: { max_pages: 5 }, timeoutMs: 60000, allowBatch: false },
 };
 
 const credentialPath = () => process.env.BRIGHT_DATA_CREDENTIALS_PATH
@@ -26,6 +29,7 @@ export function getBrightDataKey() {
 export const configStatus = () => ({
   brightData: Boolean(getBrightDataKey()),
   gemini: Boolean(process.env.GEMINI_API_KEY),
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.7-flash',
+  geminiFallbackModels: (process.env.GEMINI_FALLBACK_MODELS || 'gemini-3.6-flash,gemini-3.5-flash').split(',').map((model) => model.trim()).filter(Boolean),
   collectors: Object.fromEntries(Object.entries(COLLECTORS).map(([key, value]) => [key, { ...value, id: undefined }])),
 });
