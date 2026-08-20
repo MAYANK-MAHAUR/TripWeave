@@ -1,0 +1,6 @@
+{
+  "type": "object",
+  "fields": {
+    "url": {"type": "url", "description": "Public Booking.com hotel results URL"}
+  }
+}
