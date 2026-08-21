@@ -12,6 +12,10 @@ import { normalizeCollectorResults } from './normalize.js';
 import { enrichWithGemini } from './gemini.js';
 import { buildTourPayload } from './tour.js';
 import { selectCollectorsForRoute } from './collectorPolicy.js';
+import {
+  decideRealSelfHealing, readDemoCollection, readRealSelfHealingProgress,
+  selfHealingConfig, triggerDemoCollection, triggerRealSelfHealing,
+} from './selfHealing.js';
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
@@ -21,7 +25,10 @@ const terminalStatuses = new Set(['ready', 'partial', 'error']);
 const pipelineVersion = 2;
 const cacheTtlMs = Number(process.env.TRIP_CACHE_TTL_MS || 6 * 60 * 60 * 1000);
 const tripHistoryTtlMs = 24 * 60 * 60 * 1000;
-const cacheDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.cache');
+const configuredCacheDirectory = String(process.env.TRIP_CACHE_DIR || '').trim();
+const cacheDirectory = configuredCacheDirectory
+  ? path.resolve(configuredCacheDirectory)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.cache');
 fs.mkdirSync(cacheDirectory, { recursive: true });
 const cachePath = (key) => path.join(cacheDirectory, `${crypto.createHash('sha256').update(key).digest('hex')}.json`);
 const isCurrentCache = (cached) => cached?.schemaVersion === pipelineVersion
@@ -160,6 +167,54 @@ app.get('/api/health', (_request, response) => {
   response.json({ ok: Boolean(getBrightDataKey()), service: 'TripWeave API', now: new Date().toISOString(), ...status });
 });
 
+const creditConfirmed = (request) => request.get('x-tripweave-credit-confirm') === 'judge-approved';
+
+app.get('/api/self-heal/config', (_request, response) => response.json(selfHealingConfig()));
+
+app.post('/api/self-heal/run', async (request, response) => {
+  if (!creditConfirmed(request)) return response.status(428).json({ error: 'Confirm the real-credit action before starting a collector.' });
+  try {
+    return response.status(202).json(await triggerDemoCollection(request.body?.version));
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
+app.get('/api/self-heal/run/:collectionId', async (request, response) => {
+  try {
+    const result = await readDemoCollection(request.params.collectionId);
+    return response.status(result.status === 'collecting' ? 202 : 200).json(result);
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
+app.post('/api/self-heal/heal', async (request, response) => {
+  if (!creditConfirmed(request)) return response.status(428).json({ error: 'Confirm the real-credit action before starting Self-Healing.' });
+  try {
+    return response.status(202).json(await triggerRealSelfHealing(request.body?.prompt));
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
+app.get('/api/self-heal/heal', async (_request, response) => {
+  try {
+    return response.json(await readRealSelfHealingProgress());
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
+app.post('/api/self-heal/heal/decision', async (request, response) => {
+  if (!creditConfirmed(request)) return response.status(428).json({ error: 'Confirm the approval decision before resuming Self-Healing.' });
+  try {
+    return response.json(await decideRealSelfHealing(request.body?.approve, request.body?.autoSave !== false));
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
 app.post('/api/trips', (request, response) => {
   try {
     const query = normalizeTripQuery(request.body);
@@ -221,6 +276,6 @@ const dist = path.join(root, 'dist');
 app.use(express.static(dist));
 app.use((_request, response, next) => response.sendFile(path.join(dist, 'index.html'), (error) => error ? next() : undefined));
 
-app.listen(port, '127.0.0.1', () => {
-  console.log(`TripWeave API listening on http://127.0.0.1:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`TripWeave API listening on 0.0.0.0:${port}`);
 });
