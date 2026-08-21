@@ -16,7 +16,8 @@ function HealthyStay({ stay }) {
 }
 
 function BrokenStay({ stay }) {
-  return <section className="target-stay-result" data-qa="listing-tile-v2">
+  return <section className="target-hotel-card target-stay-result" data-qa="property-card" data-layout="listing-tile-v2">
+    <div className="target-load-sentinel" aria-hidden="true"><span className="target-hotel-name" data-field="name" /><span className="target-hotel-location" data-field="location" /><span className="target-hotel-rating" data-field="rating" /><span className="target-hotel-price" data-field="price" /></div>
     <div className={`target-hotel-image ${stay.tone}`}><span>{stay.code}</span></div>
     <div className="target-hotel-copy"><p className="target-stay-title" data-value="property-name">{stay.name}</p><div className="target-neighbourhood" data-value="area"><MapPin /> {stay.location}</div><div className="target-hotel-rating"><em data-value="guest-score">{stay.rating}</em><Star /><span>{stay.reviews}</span></div></div>
     <aside className="target-hotel-price"><small>Price per night</small><span className="target-nightly-cost" data-value="nightly">{stay.price}</span><button type="button">See rooms</button></aside>

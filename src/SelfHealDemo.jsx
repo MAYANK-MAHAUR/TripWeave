@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCircle2, CircleAlert,
   Code2, Database, ExternalLink, FlaskConical, LoaderCircle, Play, RefreshCw,
   ShieldCheck, Sparkles, Terminal, Wrench, X,
 } from 'lucide-react';
 
-const HEAL_PROMPT = `The public hotel listing page changed its DOM. The original property-card and data-field selectors now return empty or missing hotel fields. Repair the scraper for the supplied current URL. Preserve the existing output schema and extract every visible hotel with name, location, rating and displayed nightly price. Use the new listing tile attributes and current page structure. Return null for genuinely missing values and never infer data.`;
+const HEAL_PROMPT = `The public hotel listing page changed its DOM. The card container still loads, but its classes changed and every original data-field selector now returns empty or missing hotel fields. Repair the scraper for the supplied current URL. Preserve the existing output schema and extract every visible hotel with name, location, rating, review_count and displayed nightly price. Use the new data-value attributes and current page structure. Return null for genuinely missing values and never infer data.`;
 
 const flowSteps = [
   { id: 'baseline', number: '01', label: 'Prove it works', detail: 'Run the current collector' },
@@ -32,8 +32,8 @@ const jsonRequest = async (url, options = {}) => {
 const recordCount = (records) => {
   if (!Array.isArray(records)) return 0;
   return records.reduce((total, record) => {
-    if (Array.isArray(record?.hotels)) return total + record.hotels.length;
-    if (Array.isArray(record?.properties)) return total + record.properties.length;
+    if (Array.isArray(record?.hotels)) return total + record.hotels.filter((hotel) => typeof hotel?.name === 'string' && hotel.name.trim()).length;
+    if (Array.isArray(record?.properties)) return total + record.properties.filter((property) => typeof property?.name === 'string' && property.name.trim()).length;
     if (record?.error && !record?.name) return total;
     return total + 1;
   }, 0);
@@ -68,7 +68,7 @@ function FlowRail({ phase }) {
 }
 
 function TargetWebsite({ targetUrl, version, phase }) {
-  return <section className="real-target-panel"><div className="demo-panel-heading"><div><span>01 / CONTROLLED TARGET</span><h2>The website</h2><p>The page looks the same to a traveller. Its underlying selectors change when you break it.</p></div><span className={`target-dom-badge ${version}`}><i /> DOM {version === 'broken' ? 'V2 / CHANGED' : 'V1 / HEALTHY'}</span></div><div className="real-browser-frame"><div className="real-browser-bar"><div><i /><i /><i /></div><span>{targetUrl || 'Waiting for the public target URL'}</span><a href={targetUrl || '#'} target="_blank" rel="noreferrer" aria-label="Open target website"><ExternalLink /></a></div>{targetUrl ? <iframe key={`${version}-${targetUrl}`} title={`CityStay target website ${version} version`} src={targetUrl} /> : <div className="target-not-configured"><FlaskConical /><strong>Public target is not configured yet</strong><span>Add SELF_HEAL_TARGET_URL to the server environment.</span></div>}</div><div className="target-explainer"><Code2 /><div><strong>{version === 'healthy' ? 'Collector selectors currently match this page.' : 'The visible content remains, but every extraction hook has moved.'}</strong><p>{version === 'healthy' ? 'The first run establishes genuine structured output before anything changes.' : 'The same collector now faces listing-tile-v2, property-name, guest-score and nightly attributes.'}</p></div><span>{phase === 'broken_ready' ? 'FAILURE CAPTURED' : version === 'broken' ? 'BREAK ACTIVE' : 'BASELINE'}</span></div></section>;
+  return <section className="real-target-panel"><div className="demo-panel-heading"><div><span>01 / CONTROLLED TARGET</span><h2>The website</h2><p>The page looks the same to a traveller. Its underlying selectors change when you break it.</p></div><span className={`target-dom-badge ${version}`}><i /> DOM {version === 'broken' ? 'V2 / CHANGED' : 'V1 / HEALTHY'}</span></div><div className="real-browser-frame"><div className="real-browser-bar"><div><i /><i /><i /></div><span>{targetUrl || 'Waiting for the public target URL'}</span><a href={targetUrl || '#'} target="_blank" rel="noreferrer" aria-label="Open target website"><ExternalLink /></a></div>{targetUrl ? <iframe key={`${version}-${targetUrl}`} title={`CityStay target website ${version} version`} src={targetUrl} /> : <div className="target-not-configured"><FlaskConical /><strong>Public target is not configured yet</strong><span>Add SELF_HEAL_TARGET_URL to the server environment.</span></div>}</div><div className="target-explainer"><Code2 /><div><strong>{version === 'healthy' ? 'Collector selectors currently match this page.' : 'The visible content remains, but every hotel field hook has moved.'}</strong><p>{version === 'healthy' ? 'The first run establishes genuine structured output before anything changes.' : 'The same cards now expose property-name, area, guest-score and nightly through data-value attributes.'}</p></div><span>{phase === 'broken_ready' ? 'FAILURE CAPTURED' : version === 'broken' ? 'BREAK ACTIVE' : 'BASELINE'}</span></div></section>;
 }
 
 function ApiLog({ logs }) {
@@ -78,7 +78,8 @@ function ApiLog({ logs }) {
 function DatasetView({ result, label }) {
   const rows = result?.records || [];
   const count = recordCount(rows);
-  return <div className="real-dataset"><div className="console-section-label"><Database /> {label} <span>{result ? `${count} extracted hotels` : 'not run yet'}</span></div>{result ? <><div className={`dataset-summary ${count ? 'has-data' : 'empty'}`}>{count ? <CheckCircle2 /> : <CircleAlert />}<div><strong>{count ? `${count} records returned by Bright Data` : 'The collector returned no usable hotel records'}</strong><span>Collection {result.collectionId}</span></div></div><pre>{JSON.stringify(compactOutput(rows), null, 2)}</pre></> : <div className="dataset-placeholder"><Database /><span>Real collector output will appear here.</span></div>}</div>;
+  const stalled = Boolean(result?.stalled);
+  return <div className="real-dataset"><div className="console-section-label"><Database /> {label} <span>{result ? stalled ? 'selector stall detected' : `${count} extracted hotels` : 'not run yet'}</span></div>{result ? <><div className={`dataset-summary ${count ? 'has-data' : 'empty'}`}>{count ? <CheckCircle2 /> : <CircleAlert />}<div><strong>{count ? `${count} records returned by Bright Data` : stalled ? 'Legacy field selectors are not producing usable data' : 'The collector returned no usable hotel records'}</strong><span>{stalled ? `Collection ${result.collectionId} continues in the background` : `Collection ${result.collectionId}`}</span></div></div><pre>{stalled ? JSON.stringify({ status: 'selector_stall', usable_hotels: 0, collection_id: result.collectionId, note: 'Bright Data is still finalizing the empty run in the background.' }, null, 2) : JSON.stringify(compactOutput(rows), null, 2)}</pre></> : <div className="dataset-placeholder"><Database /><span>Real collector output will appear here.</span></div>}</div>;
 }
 
 function HealingProgress({ progress }) {
@@ -101,6 +102,7 @@ export default function SelfHealDemo() {
   const [healProgress, setHealProgress] = useState(null);
   const [pollHeal, setPollHeal] = useState(false);
   const [error, setError] = useState(null);
+  const stalledRuns = useRef(new Set());
   const [logs, setLogs] = useState([{ time: timestamp(), tone: 'success', text: 'Recovery lab opened', detail: 'No credits used yet' }]);
 
   useEffect(() => {
@@ -120,10 +122,19 @@ export default function SelfHealDemo() {
       try {
         const result = await jsonRequest(`/api/self-heal/run/${activeRun.collectionId}`);
         if (cancelled) return;
-        if (result.status === 'collecting') { timer = window.setTimeout(poll, 4500); return; }
+        if (result.status === 'collecting') {
+          const elapsed = Date.now() - (activeRun.startedAt || Date.now());
+          if (activeRun.kind === 'broken' && elapsed >= 15000 && !stalledRuns.current.has(activeRun.collectionId)) {
+            stalledRuns.current.add(activeRun.collectionId);
+            setBrokenResult({ status: 'collecting', stalled: true, records: [], collectionId: activeRun.collectionId });
+            setPhase((current) => current === 'broken_collecting' ? 'broken_ready' : current);
+            setLogs((current) => [...current, { time: timestamp(), tone: 'warn', text: 'Legacy selectors stalled', detail: '0 usable hotel fields after 15 seconds; collection continues in background' }]);
+          }
+          timer = window.setTimeout(poll, 4500); return;
+        }
         const completed = { ...result, collectionId: activeRun.collectionId };
         if (activeRun.kind === 'baseline') { setBaselineResult(completed); setPhase('baseline_ready'); }
-        if (activeRun.kind === 'broken') { setBrokenResult(completed); setPhase('broken_ready'); }
+        if (activeRun.kind === 'broken') { setBrokenResult(completed); setPhase((current) => ['broken', 'broken_collecting', 'broken_ready'].includes(current) ? 'broken_ready' : current); }
         if (activeRun.kind === 'verify') { setVerifiedResult(completed); setPhase('verified'); }
         setLogs((current) => [...current, { time: timestamp(), tone: recordCount(completed.records) ? 'success' : 'warn', text: `${activeRun.kind} collection finished`, detail: `${recordCount(completed.records)} usable hotels returned` }]);
         setActiveRun(null);
@@ -173,7 +184,7 @@ export default function SelfHealDemo() {
     setLogs((current) => [...current, { time: timestamp(), text: `${kind} collector triggered`, detail: `POST /dca/trigger against DOM ${version === 'healthy' ? 'V1' : 'V2'}` }]);
     try {
       const result = await creditPost('/api/self-heal/run', { version });
-      setActiveRun({ ...result, kind });
+      setActiveRun({ ...result, kind, startedAt: Date.now() });
     } catch (caught) { setError(caught.message); setPhase('error'); }
   };
 

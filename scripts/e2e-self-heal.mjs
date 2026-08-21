@@ -52,10 +52,12 @@ try {
   const healthy = await browser.newPage();
   await healthy.goto(`${baseUrl}/self-heal-target?version=healthy`, { waitUntil: 'networkidle' });
   assert.equal(await healthy.locator('[data-qa="property-card"]').count(), 3, 'healthy target should expose V1 selectors');
-  assert.equal(await healthy.locator('[data-qa="listing-tile-v2"]').count(), 0);
+  assert.equal(await healthy.locator('[data-field]').count(), 12, 'healthy target should expose V1 field hooks');
   await healthy.goto(`${baseUrl}/self-heal-target?version=broken`, { waitUntil: 'networkidle' });
-  assert.equal(await healthy.locator('[data-qa="property-card"]').count(), 0, 'broken target should remove every V1 card selector');
-  assert.equal(await healthy.locator('[data-qa="listing-tile-v2"]').count(), 3, 'broken target should expose V2 selectors');
+  assert.equal(await healthy.locator('[data-qa="property-card"]').count(), 3, 'broken target should keep a fast page-ready sentinel');
+  assert.equal(await healthy.locator('[data-qa="property-card"] [data-field]').count(), 12, 'broken cards should retain empty load sentinels');
+  assert.equal(await healthy.locator('[data-qa="property-card"] [data-field]').evaluateAll((nodes) => nodes.every((node) => !node.textContent.trim())), true, 'every retained V1 field hook should be empty');
+  assert.equal(await healthy.locator('[data-value]').count(), 12, 'broken target should expose V2 field hooks');
 
   await page.setViewportSize({ width: 390, height: 844 });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

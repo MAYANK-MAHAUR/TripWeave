@@ -32,7 +32,7 @@
     document.body.classList.toggle('broken', broken);
     document.querySelector('.version').textContent = `DEMO TARGET / DOM ${broken ? 'V2' : 'V1'}`;
     document.querySelector('.stay-list').innerHTML = stays.map(stay => broken ? `
-      <section class="stay-result" data-qa="listing-tile-v2">
+      <section class="hotel-card stay-result" data-qa="property-card" data-layout="listing-tile-v2">
         <div class="image ${stay.tone}">${stay.code}</div><div><p class="stay-title" data-value="property-name">${stay.name}</p><div class="neighbourhood" data-value="area">⌖ ${stay.location}</div><div class="rating"><em data-value="guest-score">${stay.rating}</em><span>★ ${stay.reviews}</span></div></div><aside class="price"><small>Price per night</small><span class="nightly-cost" data-value="nightly">${stay.price}</span><button>See rooms</button></aside>
       </section>` : `
       <article class="hotel-card" data-qa="property-card">
