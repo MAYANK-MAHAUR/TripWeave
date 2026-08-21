@@ -102,7 +102,7 @@ export async function runCollector(key, definition, url, onUpdate = () => {}) {
       const immediate = await pollImmediate(responseId, definition.timeoutMs || 190000);
       let payload = immediate.payload;
       if (immediate.batchRequired) {
-        if (definition.allowBatch === false) throw new Error('Realtime page allowance reached; batch fallback is disabled for this reference-only source.');
+        if (definition.allowBatch !== true) throw new Error('Stopped at Bright Data’s realtime page limit to protect the project credit budget.');
         collectionMode = 'batch';
         onUpdate({ ...metadata, status: 'switching-to-batch', mode: collectionMode, url, responseId, attempt, attempts });
         lastJobId = await triggerBatch(definition.id, input);

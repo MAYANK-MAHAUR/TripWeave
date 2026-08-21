@@ -1,7 +1,7 @@
 {
   "name": "hackathon",
   "version": "1.0.0",
-  "description": "TripWeave - complete door-to-door travel comparison",
+  "description": "TripWeave - live travel-and-stay cost comparison for up to four people",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,12 +12,13 @@
     "test": "npm run test:contracts",
     "test:contracts": "node scripts/integration-contracts.mjs",
     "test:e2e": "node scripts/e2e-dedicated-trip.mjs",
+    "test:e2e:auto-heal": "node scripts/e2e-automatic-recovery.mjs",
     "test:e2e:self-heal": "node scripts/e2e-self-heal.mjs",
     "preview": "vite preview",
     "start": "node server/index.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Mayank Mahaur",
   "license": "MIT",
   "engines": {
     "node": ">=22.12.0"

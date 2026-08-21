@@ -15,6 +15,7 @@ const RouteTour = lazy(() => import('./RouteTour.jsx'));
 const SelfHealDemo = lazy(() => import('./SelfHealDemo.jsx'));
 const SelfHealTarget = lazy(() => import('./SelfHealTarget.jsx'));
 const terminalStatuses = new Set(['ready', 'partial', 'error']);
+const activeRecoveryStatuses = new Set(['queued', 'analyzing', 'applying', 'verifying']);
 const modeIcons = { Flight: Plane, Train: TrainFront, Bus: BusFront, Cab: CarFront, Van: BusFront, Hotel };
 const day = (offset) => { const date = new Date(); date.setDate(date.getDate() + offset); return date.toISOString().slice(0, 10); };
 const INITIAL_QUERY = { from: 'Delhi', to: 'New York', departDate: day(21), returnDate: day(23), adults: 2, currency: 'INR' };
@@ -43,11 +44,11 @@ function Hero({ health, job, onSearch }) {
   const update = (key) => (value) => setDraft((current) => ({ ...current, [key]: key === 'adults' ? Number(value) : value }));
   const result = job?.result;
   const offerCount = result ? result.offers.transports.length + result.offers.hotels.length : null;
-  return <section className="hero" id="top"><div className="hero-grid" aria-hidden="true" /><div className="hero-topline"><span><i className={health?.brightData ? 'live-dot' : 'live-dot offline'} />{health?.brightData ? 'Bright Data connected / live requests enabled' : 'Checking collector connection'}</span><span>{running ? `${job.progress}% / ${job.stage}` : result ? `Collected ${new Date(result.collectedAt).toLocaleTimeString()}` : 'No cached result shown'}</span></div><div className="hero-content"><p className="eyebrow hero-eyebrow">Plan the full trip before you spend</p><h1 className="hero-title"><span>The whole</span><span className="outline-word">trip.</span><span>One real search.</span></h1><div className="hero-bottom"><div className="hero-copy"><p className="hero-thesis">Travel and stays, from budget picks to premium plans, in one search.</p><p className="hero-problem">Most trips start with too many tabs and end with a budget surprise. Tell TripWeave where you want to go and see the likely whole-trip cost before you book.</p></div><div className="hero-actions"><a className="primary-button hero-cta" href="#planner">Plan a real trip <ArrowDown /></a></div></div></div><div className="route-ribbon" aria-label="Trip route"><div className="route-node"><span>FROM</span><strong>{draft.from || 'Choose origin'}</strong></div><div className="route-line"><span /><span /><span /><span /><span /></div><div className="route-node route-node-right"><span>TO</span><strong>{draft.to || 'Choose destination'}</strong></div><div className="route-modes"><Plane /><TrainFront /><CarFront /><Hotel /></div></div><form className="search-card" id="planner" onSubmit={(event) => { event.preventDefault(); onSearch(draft); }} aria-label="Plan a live trip"><div className="search-card-head"><span className="search-card-title-wrap"><Compass /><span><strong>Live trip planner</strong><small>Type into the fields below or use the example route</small></span></span><span className="search-live"><i className={health?.brightData ? 'live-dot' : 'live-dot offline'} /> {Object.keys(health?.collectors || {}).length || 7} live sources</span></div><div className="search-grid live-search-grid"><SearchField icon={MapPin} label="From" value={draft.from} onChange={update('from')} placeholder="City or airport" /><SearchField icon={MapPin} label="To" value={draft.to} onChange={update('to')} placeholder="City or airport" /><SearchField icon={CalendarDays} label="Depart" type="date" value={draft.departDate} onChange={update('departDate')} min={day(1)} /><SearchField icon={CalendarDays} label="Return" type="date" value={draft.returnDate} onChange={update('returnDate')} min={draft.departDate || day(2)} /><SearchField icon={Users} label="Travellers" type="number" value={draft.adults} onChange={update('adults')} min="1" max="4" /><button className="search-submit" type="submit" disabled={running || !health?.brightData}>{running ? <><LoaderCircle className="spin" /> Collecting {job.progress}%</> : <><Search /> Search live trip</>}</button></div><div className="search-foot"><span>KAYAK · Skyscanner · 12Go · redBus · Booking · Expedia · TripAdvisor</span><span className="search-foot-action">Ready to edit <i /> then search another route</span></div></form><div className="hero-status live-hero-status">{result ? <><div><span>Lowest composed total</span><strong>{result.observedRange?.minText || 'Incomplete'}</strong></div><div><span>Real offers returned</span><strong>{offerCount}</strong></div><div><span>Sources completed</span><strong>{result.sources.filter((source) => source.status === 'complete').length} / {result.sources.length}</strong></div></> : <><div><span>Collector API</span><strong>{health?.brightData ? 'Connected' : 'Unavailable'}</strong></div><div><span>Gemini guide</span><strong>{health?.gemini ? (health.geminiModel || 'Connected') : 'Key needed'}</strong></div><div><span>Current result</span><strong>Search to begin</strong></div></>}</div><div className="scroll-cue"><span>Live planner below</span><ArrowDown /></div></section>;
+  return <section className="hero" id="top"><div className="hero-grid" aria-hidden="true" /><div className="hero-topline"><span><i className={health?.brightData ? 'live-dot' : 'live-dot offline'} />{health?.brightData ? 'Bright Data connected / live requests enabled' : 'Checking collector connection'}</span><span>{running ? `${job.progress}% / ${job.stage}` : result ? `Collected ${new Date(result.collectedAt).toLocaleTimeString()}` : 'No cached result shown'}</span></div><div className="hero-content"><p className="eyebrow hero-eyebrow">Plan the full trip before you spend</p><h1 className="hero-title"><span>The whole</span><span className="outline-word">trip.</span><span>One real search.</span></h1><div className="hero-bottom"><div className="hero-copy"><p className="hero-thesis">Travel and stays, from budget picks to premium plans, in one search.</p><p className="hero-problem">Most trips start with too many tabs and end with a budget surprise. Tell TripWeave where you want to go and see the verified travel-and-stay cost before you book.</p></div><div className="hero-actions"><a className="primary-button hero-cta" href="#planner">Plan a real trip <ArrowDown /></a></div></div></div><div className="route-ribbon" aria-label="Trip route"><div className="route-node"><span>FROM</span><strong>{draft.from || 'Choose origin'}</strong></div><div className="route-line"><span /><span /><span /><span /><span /></div><div className="route-node route-node-right"><span>TO</span><strong>{draft.to || 'Choose destination'}</strong></div><div className="route-modes"><Plane /><TrainFront /><CarFront /><Hotel /></div></div><form className="search-card" id="planner" onSubmit={(event) => { event.preventDefault(); onSearch(draft); }} aria-label="Plan a live trip"><div className="search-card-head"><span className="search-card-title-wrap"><Compass /><span><strong>Live trip planner</strong><small>Type into the fields below or use the example route</small></span></span><span className="search-live"><i className={health?.brightData ? 'live-dot' : 'live-dot offline'} /> {Object.keys(health?.collectors || {}).length || 7} live sources</span></div><div className="search-grid live-search-grid"><SearchField icon={MapPin} label="From" value={draft.from} onChange={update('from')} placeholder="City or airport" /><SearchField icon={MapPin} label="To" value={draft.to} onChange={update('to')} placeholder="City or airport" /><SearchField icon={CalendarDays} label="Depart" type="date" value={draft.departDate} onChange={update('departDate')} min={day(1)} /><SearchField icon={CalendarDays} label="Return" type="date" value={draft.returnDate} onChange={update('returnDate')} min={draft.departDate || day(2)} /><SearchField icon={Users} label="Travellers" type="number" value={draft.adults} onChange={update('adults')} min="1" max="4" /><button className="search-submit" type="submit" disabled={running || !health?.brightData}>{running ? <><LoaderCircle className="spin" /> Collecting {job.progress}%</> : <><Search /> Search live trip</>}</button></div><div className="search-foot"><span>KAYAK · Skyscanner · 12Go · redBus · Booking · Expedia · TripAdvisor</span><span className="search-foot-action">Ready to edit <i /> then search another route</span></div></form><div className="hero-status live-hero-status">{result ? <><div><span>Lowest composed total</span><strong>{result.observedRange?.minText || 'Incomplete'}</strong></div><div><span>Real offers returned</span><strong>{offerCount}</strong></div><div><span>Sources completed</span><strong>{result.sources.filter((source) => source.status === 'complete').length} / {result.sources.length}</strong></div></> : <><div><span>Collector API</span><strong>{health?.brightData ? 'Connected' : 'Unavailable'}</strong></div><div><span>Gemini guide</span><strong>{health?.gemini ? (health.geminiModel || 'Connected') : 'Key needed'}</strong></div><div><span>Current result</span><strong>Search to begin</strong></div></>}</div><div className="scroll-cue"><span>Live planner below</span><ArrowDown /></div></section>;
 }
 
 function ValueSection() {
-  return <section className="value-section section-shell" id="how"><div className="section-index"><span>01</span><span>What counts</span></div><div className="value-main"><h2 className="reveal-title">Stop finding out too late that the trip costs too much.</h2><p>People spend hours comparing flights, trains, buses and hotels, only to discover the full trip is over budget. Choose a destination and TripWeave brings travel and stays together for up to four people, from the cheapest options to premium plans.</p><div className="coverage-contrast"><div><Plane /><strong>Get there</strong><span>Flights, trains, buses and cabs</span></div><ArrowRight /><div><CarFront /><strong>Stay there</strong><span>Hotels for your exact dates</span></div><ArrowRight /><div><BedDouble /><strong>Choose what fits</strong><span>Budget to premium, side by side</span></div></div></div><div className="value-metrics"><div><strong>ONE</strong><span>Place to compare</span></div><div><strong>1 to 4</strong><span>Travellers</span></div><div><strong>LIVE</strong><span>Prices as they arrive</span></div></div><div className="process-rail" aria-label="How TripWeave works">{['Choose cities', 'Compare travel', 'Compare stays', 'See the full trip'].map((item, index) => <div className="process-step" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p>{item}</p>{index < 3 && <ArrowRight />}</div>)}</div></section>;
+  return <section className="value-section section-shell" id="how"><div className="section-index"><span>01</span><span>What counts</span></div><div className="value-main"><h2 className="reveal-title">Stop finding out too late that the trip costs too much.</h2><p>People spend hours comparing flights, trains, buses and hotels, only to discover the trip is over budget. Choose a destination and TripWeave brings travel and stays together for up to four people, from the cheapest options to premium plans.</p><div className="coverage-contrast"><div><Plane /><strong>Get there</strong><span>Flights, trains and buses</span></div><ArrowRight /><div><CarFront /><strong>Stay there</strong><span>Hotels for your exact dates</span></div><ArrowRight /><div><BedDouble /><strong>Choose what fits</strong><span>Budget to premium, side by side</span></div></div></div><div className="value-metrics"><div><strong>ONE</strong><span>Place to compare</span></div><div><strong>1 to 4</strong><span>Travellers</span></div><div><strong>LIVE</strong><span>Prices as they arrive</span></div></div><div className="process-rail" aria-label="How TripWeave works">{['Choose cities', 'Compare travel', 'Compare stays', 'See travel + stay total'].map((item, index) => <div className="process-step" key={item}><span>{String(index + 1).padStart(2, '0')}</span><p>{item}</p>{index < 3 && <ArrowRight />}</div>)}</div></section>;
 }
 
 function ModePills({ modes = [] }) { return <div className="mode-pills">{modes.map((mode) => { const Icon = modeIcons[mode] || Route; return <span className="mode-pill" key={mode}><Icon />{mode}</span>; })}</div>; }
@@ -72,6 +73,54 @@ function OfferFallback({ result }) {
   return <div className="offer-fallback"><div className="fallback-head"><AlertTriangle /><div><h3>{result.streaming ? 'Real offers are arriving now.' : 'No full trip plan is ready yet.'}</h3><p>{result.streaming ? 'You can inspect these returned prices immediately. Remaining sources will appear here automatically.' : 'These are the real rows that did return. TripWeave will not invent the missing side of the trip.'}</p></div></div><div className="raw-offer-columns"><div><span className="detail-label">Transport offers / {transports.length}</span>{transports.slice(0, 8).map((offer) => <a className="raw-offer" href={offer.sourceUrl || '#'} target="_blank" rel="noreferrer" key={offer.id}><ModePills modes={[offer.mode]} /><strong>{offer.operator}</strong><span>{offer.priceText || 'Price unavailable'}</span><small>{offer.tripLeg === 'return' ? 'RETURN' : offer.tripLeg === 'roundtrip' ? 'ROUND TRIP' : 'OUTBOUND'} · {offer.departure || 'Time unavailable'} · {offer.source}</small></a>)}</div><div><span className="detail-label">Hotel offers / {hotels.length}</span>{hotels.slice(0, 8).map((hotel) => <a className="raw-offer" href={hotel.sourceUrl || '#'} target="_blank" rel="noreferrer" key={hotel.id}><ModePills modes={['Hotel']} /><strong>{hotel.name}</strong><span>{hotel.priceText || 'Price unavailable'}</span><small>{hotel.location || 'Location unavailable'} · {hotel.source}</small></a>)}</div></div></div>;
 }
 
+function AutomaticRecoveryPanel({ recoveries }) {
+  const items = Object.values(recoveries || {});
+  if (!items.length) return null;
+  const active = items.some((item) => activeRecoveryStatuses.has(item.status));
+  const recovered = items.filter((item) => item.status === 'recovered').length;
+  const statusLabel = (status) => ({
+    queued: 'Detected',
+    analyzing: 'Rewriting scraper',
+    applying: 'Applying patch',
+    verifying: 'Verifying live data',
+    recovered: 'Recovered',
+    verification_failed: 'Needs another repair',
+    failed: 'Repair stopped',
+    cooldown: 'Already handled',
+    budget_limited: 'Daily limit reached',
+    interrupted: 'Will retry later',
+  }[status] || status);
+  return <section className={`automatic-recovery ${active ? 'active' : recovered ? 'recovered' : 'stopped'}`} aria-live="polite">
+    <div className="automatic-recovery-head">
+      <span className="recovery-symbol">{active ? <LoaderCircle className="spin" /> : recovered ? <ShieldCheck /> : <AlertTriangle />}</span>
+      <div><span>Scraper Studio self-healing</span><strong>{active ? 'A changed travel site is repairing itself' : recovered ? 'The live data gap was repaired' : 'The trip remains available'}</strong></div>
+      <small>{active ? 'Automatic' : recovered ? `${recovered} source recovered` : 'No invented data'}</small>
+    </div>
+    <div className="automatic-recovery-list">{items.map((item) => <div className="automatic-recovery-row" key={item.collectorKey}>
+      <span className={`recovery-dot ${item.status}`} />
+      <div><strong>{item.label}</strong><p>{item.message}</p></div>
+      <span>{statusLabel(item.status)}</span>
+    </div>)}</div>
+    <p className="automatic-recovery-foot">The Collector ID stays the same. TripWeave saves a successful repair, checks one failed input, then adds recovered options without restarting your trip.</p>
+  </section>;
+}
+
+function MoreSourcesPanel({ job, onExpand, expanding }) {
+  if (!job?.result || !terminalStatuses.has(job.status)) return null;
+  if (job.options?.fullComparison) return <div className="full-comparison-confirmed"><ShieldCheck /><span><strong>Full comparison requested</strong>Every compatible website for this route was checked in this run.</span></div>;
+  const triggered = new Set(job.creditPolicy?.triggeredCollectors || []);
+  const possible = [
+    ...(job.creditPolicy?.fallbackCollectors || []),
+    ...(job.creditPolicy?.skippedCollectors || []).filter((item) => /on demand|reference/i.test(item.reason || '')).map((item) => item.key),
+  ];
+  const remaining = [...new Set(possible)].filter((key) => !triggered.has(key)).length;
+  return <section className="more-sources-panel" aria-labelledby="more-sources-title">
+    <div className="more-sources-signal" aria-hidden="true"><span /><span /><span /><i /></div>
+    <div><span className="eyebrow">Optional deeper search</span><h3 id="more-sources-title">Want a wider comparison?</h3><p>Your first search uses the most useful sources for this route. Check the remaining compatible websites only when you want more alternatives.</p></div>
+    <div className="more-sources-action"><button type="button" onClick={onExpand} disabled={expanding}>{expanding ? <><LoaderCircle className="spin" /> Starting full comparison</> : <><Search /> Check more websites</>}</button><small>{remaining ? `${remaining} additional source${remaining === 1 ? '' : 's'} available` : 'Runs the complete compatible source set'} · may use extra credits</small></div>
+  </section>;
+}
+
 function LegacyTripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
   const [filter, setFilter] = useState('All');
   const [selected, setSelected] = useState(null);
@@ -88,7 +137,7 @@ function LegacyTripConsole({ job, error, onOpenTour, loadingSavedTrip = false })
   const collecting = Boolean(job && !terminalStatuses.has(job.status));
   const offerCount = (job?.result?.offers?.transports?.length || 0) + (job?.result?.offers?.hotels?.length || 0);
   const sourceFailures = job?.result?.sources?.filter((source) => source.status === 'failed').length || 0;
-  const snapshotMessage = collecting ? `Live preview. ${offerCount} real offers available; new rows add automatically` : job?.status === 'partial' ? 'Partial live route. Check what is still missing.' : sourceFailures ? `Complete trip found. ${sourceFailures} source${sourceFailures === 1 ? '' : 's'} unavailable` : 'All travel sites have responded';
+  const snapshotMessage = collecting ? `Live preview. ${offerCount} real offers available; new rows add automatically` : job?.status === 'partial' ? 'Partial live route. Check what is still missing.' : sourceFailures ? `Complete trip found. ${sourceFailures} source${sourceFailures === 1 ? '' : 's'} unavailable` : 'All selected sources have responded';
   return <section className="compare-section" id="compare"><div className="compare-header section-shell"><div className="section-index light-index"><span>TRIP</span><span>Live result page</span></div><div><p className="eyebrow">{job?.query ? `${job.query.from} → ${job.query.to} / ${formatDate(job.query.departDate)}` : loadingSavedTrip ? 'Restoring trip job' : 'Waiting for a route'}</p><h2>See your trip options<br />as they arrive.</h2></div><p className="compare-intro">Compare the whole trip in one place. Every price links back to where it was found, and anything still missing is clearly marked.</p></div><div className="console-shell">{loadingSavedTrip && <div className="console-loading"><LoaderCircle className="spin" /><span className="eyebrow">LOADING SAVED TRIP</span><h3>Restoring your trip...</h3><p>Your saved travel and stay options are being restored.</p></div>}{!job && !error && !loadingSavedTrip && <div className="console-empty"><Compass /><h3>Your live comparison starts with a route.</h3><p>Enter two cities and dates on the home page. Real options start appearing within seconds, and the page keeps adding more as travel sites respond.</p><a className="primary-button" href="/">Choose a route <ArrowUpRight /></a></div>}{error && <div className="console-error"><AlertTriangle /><h3>Trip request stopped</h3><p>{error}</p><a href="/" className="primary-button">Start a new search <RefreshCw /></a></div>}{job && !terminalStatuses.has(job.status) && <CollectorProgress job={job} />}{job?.status === 'error' && <div className="console-error"><AlertTriangle /><h3>Live collection failed</h3><p>{job.error}</p><a href="/" className="primary-button">Try another search <RefreshCw /></a></div>}{job?.result && !journeys.length && <OfferFallback result={job.result} />}{job?.result && journeys.length > 0 && <><div className="console-toolbar"><div className="console-brand"><Route /><span>{journeys.length} trip plans / {job.result.offers.transports.length + job.result.offers.hotels.length} live options</span></div><div className="filter-tabs" role="group" aria-label="Sort real trip combinations">{filters.map((item) => <button className={filter === item ? 'filter-tab active' : 'filter-tab'} type="button" key={item} onClick={() => setFilter(item)}>{item}</button>)}</div></div><div className={`console-snapshot ${job.status === 'partial' ? 'partial' : ''}`}>{job.status === 'partial' ? <AlertTriangle /> : <ShieldCheck />} {snapshotMessage} <span>•</span> {new Date(job.result.collectedAt).toLocaleString()}</div><div className="console-grid"><div className="trip-list" role="list" aria-label="Composed journeys"><div className="list-heading"><span>{visible.length} options / prices shown in INR</span><span>Included</span></div>{visible.map((option) => <button className={current?.id === option.id ? 'trip-row selected' : 'trip-row'} type="button" key={option.id} onClick={() => setSelected(option.id)}><span className="row-eyebrow">{option.eyebrow}</span><span className="row-title">{option.label}</span><ModePills modes={option.modes} /><span className="row-total">{option.totalText}<small>{option.sources.join(' · ')}</small></span><span className="row-meta"><Clock3 /> {option.durationText} · {option.coverage.complete ? 'all priced legs' : `missing ${option.coverage.missing.join(', ')}`}</span><ArrowRight className="row-arrow" /></button>)}</div>{current && <aside className="trip-detail" aria-live="polite"><div className="detail-topline"><span>TRIP / {current.id.slice(0, 8).toUpperCase()}</span><span className="verified"><ShieldCheck /> {current.confidence}% details found</span></div><div className="detail-heading"><p className="eyebrow">{current.eyebrow}</p><h3>{current.label}</h3><p>{current.note}</p></div><div className="detail-total"><span>Current trip total</span><strong>{current.totalText}</strong><small>{current.sources.join(' · ')}</small></div><div className="detail-breakdown"><div className="detail-label">Price breakdown</div>{current.breakdown.map((row) => <a className="breakdown-row" href={row.url || '#'} target="_blank" rel="noreferrer" key={`${row.label}-${row.source}`}><span>{row.label}<small>{row.source}</small></span><strong>{formatInr(row.amountInr)}</strong></a>)}{job.result.observedRange && <div className="breakdown-total"><span>Current price range</span><strong>{job.result.observedRange.minText} to {job.result.observedRange.maxText}</strong></div>}</div><div className="timeline"><div className="detail-label">Your trip, step by step</div>{current.timeline.map((stop, index) => <div className="timeline-row" key={`${stop.label}-${index}`}><span className="timeline-time">{stop.time || 'Not set'}</span><span className="timeline-dot"><i /></span><div><strong>{stop.label}</strong><p>{stop.detail}</p></div>{index < current.timeline.length - 1 && <span className="timeline-stem" />}</div>)}</div><div className="coverage-note"><AlertTriangle /><span>{current.coverage.complete ? 'All currently priced legs are included.' : `Not priced yet: ${current.coverage.missing.join(', ')}.`}</span></div><div className="detail-actions"><button className="primary-button detail-button" type="button" onClick={() => onOpenTour(current)}><Compass /> Open guided route</button><a className="source-button" href={current.sourceUrl || '#'} target="_blank" rel="noreferrer"><ShieldCheck /> Open travel site <ArrowUpRight /></a></div></aside>}</div></>}</div></section>;
 }
 
@@ -129,7 +178,7 @@ function PlanDetailModal({ plan, result, travellers, tag, sourceUrlFor, onClose,
   </div>;
 }
 
-function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
+function TripConsole({ job, error, onOpenTour, onExpand, expanding = false, loadingSavedTrip = false }) {
   const [filter, setFilter] = useState('All');
   const [selected, setSelected] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -188,7 +237,7 @@ function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
           <div className="trip-airport trip-airport-destination"><span>To</span><strong>{toCode}</strong><small>{toName}</small></div>
         </div>
         {result && <div className="trip-overview" aria-label="Trip summary">
-          <article className="trip-stat trip-stat-range"><span>Prices found</span><strong>{result.observedRange?.minText || 'Waiting'} <small>to</small> {result.observedRange?.maxText || 'Waiting'}</strong><p>Whole-trip totals currently available</p></article>
+          <article className="trip-stat trip-stat-range"><span>Prices found</span><strong>{result.observedRange?.minText || 'Waiting'} <small>to</small> {result.observedRange?.maxText || 'Waiting'}</strong><p>Travel-and-stay totals currently available</p></article>
           <article className="trip-stat"><span>Plans ready</span><strong>{journeys.length}</strong><p>Travel and stay combinations</p></article>
           <article className="trip-stat"><span>Options checked</span><strong>{offerCount}</strong><p>Across transport and hotels</p></article>
           <article className="trip-stat"><span>Websites checked</span><strong>{sourceCount}<small> / {totalSources}</small></strong><p>Live source responses</p></article>
@@ -200,6 +249,8 @@ function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
         {!job && !error && !loadingSavedTrip && <div className="console-empty"><Compass /><h3>Start with a destination.</h3><p>Choose your cities and dates to compare real travel and stay prices in one place.</p><a className="primary-button" href="/">Plan a trip <ArrowUpRight /></a></div>}
         {error && <div className="console-error"><AlertTriangle /><h3>This trip could not be loaded</h3><p>{error}</p><a href="/" className="primary-button">Start a new search <RefreshCw /></a></div>}
         {collecting && <CollectorProgress job={job} />}
+        {job && <AutomaticRecoveryPanel recoveries={job.recoveries} />}
+        {job && <MoreSourcesPanel job={job} onExpand={onExpand} expanding={expanding} />}
         {job?.status === 'error' && <div className="console-error"><AlertTriangle /><h3>The live search stopped</h3><p>{job.error}</p><a href="/" className="primary-button">Try another search <RefreshCw /></a></div>}
         {result && !journeys.length && <OfferFallback result={result} />}
         {result && journeys.length > 0 && <>
@@ -241,8 +292,8 @@ function Footer() {
   return <footer className="site-footer"><div className="footer-signal"><Route /><span>Travel and stay planner</span></div><div className="footer-title">TRIP<span>WEAVE</span></div><div className="footer-grid"><p>Plan travel and stays together, compare the total, and choose what fits your budget.</p><div><span>Prototype</span><strong>Scrape-Verse / 2026</strong></div><a href="#top">Back to top <ArrowUpRight /></a></div></footer>;
 }
 
-function TripPage({ job, error, onOpenTour }) {
-  return <main className="trip-page"><div className="trip-page-bar"><a href="/"><ChevronLeft /> Back to search</a><span>Live trip comparison</span><span className={job?.status === 'ready' ? 'trip-job-ready' : ''}>{job?.status === 'ready' ? 'Prices ready' : job?.status || 'Loading'}</span></div><TripConsole job={job} error={error} loadingSavedTrip={!job && !error} onOpenTour={onOpenTour} /></main>;
+function TripPage({ job, error, onOpenTour, onExpand, expanding }) {
+  return <main className="trip-page"><div className="trip-page-bar"><a href="/"><ChevronLeft /> Back to search</a><span>Live trip comparison</span><span className={job?.status === 'ready' ? 'trip-job-ready' : ''}>{job?.status === 'ready' ? 'Prices ready' : job?.status || 'Loading'}</span></div><TripConsole job={job} error={error} loadingSavedTrip={!job && !error} onOpenTour={onOpenTour} onExpand={onExpand} expanding={expanding} /></main>;
 }
 
 export default function App() {
@@ -250,9 +301,11 @@ export default function App() {
   const [job, setJob] = useState(null);
   const [requestError, setRequestError] = useState(null);
   const [tourJourney, setTourJourney] = useState(null);
+  const [expandingSources, setExpandingSources] = useState(false);
   const [pathname, setPathname] = useState(window.location.pathname);
   const tripId = pathname.match(/^\/trip\/([^/]+)/)?.[1];
   const activeTripJob = tripId && job?.id === tripId ? job : null;
+  const automaticRecoveryActive = Object.values(job?.recoveries || {}).some((recovery) => activeRecoveryStatuses.has(recovery.status));
   useEffect(() => { fetch('/api/health').then((response) => response.json()).then(setHealth).catch(() => setHealth({ brightData: false, gemini: false, collectors: {} })); }, []);
   useEffect(() => {
     if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
@@ -274,13 +327,31 @@ export default function App() {
     fetch(`/api/trips/${tripId}`).then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Trip job not found.'); setJob(data); }).catch((error) => setRequestError(error.message));
   }, [tripId, job?.id]);
   useEffect(() => {
-    if (!job?.id || terminalStatuses.has(job.status)) return undefined;
+    if (!job?.id || (terminalStatuses.has(job.status) && !automaticRecoveryActive)) return undefined;
     const timer = window.setInterval(async () => { try { const response = await fetch(`/api/trips/${job.id}`); const next = await response.json(); if (!response.ok) throw new Error(next.error || 'Could not read trip status.'); setJob(next); } catch (error) { setRequestError(error.message); window.clearInterval(timer); } }, 1200);
     return () => window.clearInterval(timer);
-  }, [job?.id, job?.status]);
+  }, [job?.id, job?.status, automaticRecoveryActive]);
   const searchTrip = async (query) => {
     setRequestError(null); setTourJourney(null);
     try { const response = await fetch('/api/trips', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query) }); const next = await response.json(); if (!response.ok && response.status !== 202) throw new Error(next.error || 'The trip could not be started.'); window.location.assign(`/trip/${next.id}`); } catch (error) { setRequestError(error.message); }
+  };
+  const expandTrip = async () => {
+    if (!activeTripJob?.query || expandingSources) return;
+    setRequestError(null);
+    setExpandingSources(true);
+    try {
+      const response = await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...activeTripJob.query, fullComparison: true, includeReferenceSources: true }),
+      });
+      const next = await response.json();
+      if (!response.ok && response.status !== 202) throw new Error(next.error || 'The full comparison could not be started.');
+      window.location.assign(`/trip/${next.id}`);
+    } catch (error) {
+      setRequestError(error.message);
+      setExpandingSources(false);
+    }
   };
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -299,5 +370,5 @@ export default function App() {
   const isSelfHealPage = /^\/self-heal\/?$/.test(pathname);
   const isSelfHealTargetPage = /^\/self-heal-target\/?$/.test(pathname);
   const isStandalonePage = isSelfHealPage || isSelfHealTargetPage;
-  return <>{!isStandalonePage && <Navigation job={activeTripJob || job} />}{isSelfHealTargetPage ? <Suspense fallback={<div className="self-heal-loading">Loading the target site...</div>}><SelfHealTarget /></Suspense> : isSelfHealPage ? <Suspense fallback={<div className="self-heal-loading">Loading the repair lab...</div>}><SelfHealDemo /></Suspense> : isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}{!isStandalonePage && <Footer />}{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
+  return <>{!isStandalonePage && <Navigation job={activeTripJob || job} />}{isSelfHealTargetPage ? <Suspense fallback={<div className="self-heal-loading">Loading the target site...</div>}><SelfHealTarget /></Suspense> : isSelfHealPage ? <Suspense fallback={<div className="self-heal-loading">Loading the repair lab...</div>}><SelfHealDemo /></Suspense> : isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} onExpand={expandTrip} expanding={expandingSources} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}{!isStandalonePage && <Footer />}{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
 }

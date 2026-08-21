@@ -27,6 +27,26 @@ async function brightDataRequest(endpoint, { method = 'GET', body, timeoutMs = 2
 const configuredCollectorId = () => String(process.env.BRIGHT_DATA_SELF_HEAL_COLLECTOR_ID || '').trim();
 const configuredTargetUrl = () => String(process.env.SELF_HEAL_TARGET_URL || '').trim();
 
+const validateCollectorId = (collectorId) => {
+  const value = String(collectorId || '').trim();
+  if (!/^c_[a-z0-9]+$/i.test(value)) throw new Error('Invalid Bright Data collector ID.');
+  return value;
+};
+
+const validateTargetUrl = (targetUrl) => {
+  const value = String(targetUrl || '').trim();
+  const parsed = new URL(value);
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Self-Healing requires a public HTTP target URL.');
+  return parsed.toString();
+};
+
+const validatePrompt = (prompt) => {
+  const value = String(prompt || '').trim();
+  if (!value) throw new Error('Describe what the Self-Healing job should repair.');
+  if (value.length > 1000) throw new Error('The Self-Healing prompt must be 1,000 characters or fewer.');
+  return value;
+};
+
 export function targetUrlFor(version = 'healthy') {
   const base = configuredTargetUrl();
   if (!base) return null;
@@ -83,27 +103,38 @@ export async function readDemoCollection(collectionId) {
 
 export async function triggerRealSelfHealing(prompt) {
   const collectorId = requireConfiguration();
-  const trimmedPrompt = String(prompt || '').trim();
-  if (!trimmedPrompt) throw new Error('Describe what the Self-Healing job should repair.');
-  if (trimmedPrompt.length > 1000) throw new Error('The Self-Healing prompt must be 1,000 characters or fewer.');
   const targetUrl = targetUrlFor('broken');
-  const { response, payload } = await brightDataRequest(`/dca/collectors/${encodeURIComponent(collectorId)}/refactor_template`, {
+  return triggerCollectorSelfHealing({ collectorId, targetUrl, prompt });
+}
+
+export async function triggerCollectorSelfHealing({ collectorId, targetUrl, prompt }) {
+  if (!getBrightDataKey()) throw new Error('Bright Data is not connected on this server.');
+  const validCollectorId = validateCollectorId(collectorId);
+  const validTargetUrl = validateTargetUrl(targetUrl);
+  const trimmedPrompt = validatePrompt(prompt);
+  const { response, payload } = await brightDataRequest(`/dca/collectors/${encodeURIComponent(validCollectorId)}/refactor_template`, {
     method: 'POST',
-    body: { prompt: trimmedPrompt, custom_input: [{ url: targetUrl }] },
+    body: { prompt: trimmedPrompt, custom_input: [{ url: validTargetUrl }] },
   });
   if (!response.ok) throw new Error(errorMessage(payload, `Self-Healing trigger failed (${response.status}).`));
-  return { collectorId, targetUrl, prompt: trimmedPrompt, payload };
+  return { collectorId: validCollectorId, targetUrl: validTargetUrl, prompt: trimmedPrompt, payload };
 }
 
 export async function readRealSelfHealingProgress() {
   const collectorId = requireConfiguration();
-  const { response, payload } = await brightDataRequest(`/dca/collectors/${encodeURIComponent(collectorId)}/refactor_template/progress`);
+  return readCollectorSelfHealingProgress(collectorId);
+}
+
+export async function readCollectorSelfHealingProgress(collectorId) {
+  if (!getBrightDataKey()) throw new Error('Bright Data is not connected on this server.');
+  const validCollectorId = validateCollectorId(collectorId);
+  const { response, payload } = await brightDataRequest(`/dca/collectors/${encodeURIComponent(validCollectorId)}/refactor_template/progress`);
   if (!response.ok) throw new Error(errorMessage(payload, `Self-Healing progress failed (${response.status}).`));
-  const status = payload?.status || 'running';
+  const status = String(payload?.status || 'running').toLowerCase();
   return {
-    collectorId,
+    collectorId: validCollectorId,
     status,
-    terminal: terminalHealStatuses.has(status),
+    terminal: terminalHealStatuses.has(status) || ['completed', 'success', 'succeeded'].includes(status),
     awaitingApproval: status === 'pending_answer',
     step: payload?.step || null,
     completedSteps: payload?.completed_steps || [],
@@ -115,10 +146,16 @@ export async function readRealSelfHealingProgress() {
 
 export async function decideRealSelfHealing(approve, autoSave = true) {
   const collectorId = requireConfiguration();
-  const { response, payload } = await brightDataRequest(`/dca/collectors/${encodeURIComponent(collectorId)}/resume_automation_job`, {
+  return decideCollectorSelfHealing({ collectorId, approve, autoSave });
+}
+
+export async function decideCollectorSelfHealing({ collectorId, approve, autoSave = true }) {
+  if (!getBrightDataKey()) throw new Error('Bright Data is not connected on this server.');
+  const validCollectorId = validateCollectorId(collectorId);
+  const { response, payload } = await brightDataRequest(`/dca/collectors/${encodeURIComponent(validCollectorId)}/resume_automation_job`, {
     method: 'POST',
     body: { message: Boolean(approve), auto_save: Boolean(approve && autoSave) },
   });
   if (!response.ok) throw new Error(errorMessage(payload, `Self-Healing decision failed (${response.status}).`));
-  return { collectorId, approved: Boolean(approve), autoSave: Boolean(approve && autoSave) };
+  return { collectorId: validCollectorId, approved: Boolean(approve), autoSave: Boolean(approve && autoSave) };
 }

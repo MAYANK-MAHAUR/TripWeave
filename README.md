@@ -2,7 +2,7 @@
 
 # TripWeave: Plan the whole trip across the globe
 
-### Transport, stays, nearby attractions and the likely total cost for up to four people in one live search.
+### Transport, stays, nearby attractions and the verified travel-and-stay cost range for up to four people in one search.
 
 Trip planning is fragmented across flight, train, bus and hotel websites, while attractions are researched separately. **TripWeave brings them together as complete, budget-ranked trip plans before you book anything.**
 
@@ -42,7 +42,7 @@ Each plan includes:
     <td width="50%"><img src="docs/images/guided-hotel.png" alt="TripWeave guided city map and selected hotel" /></td>
   </tr>
   <tr>
-    <td><strong>One complete total</strong><br />Transport and stay prices are shown together, with every source and missing cost visible.</td>
+    <td><strong>One combined total</strong><br />Transport and stay prices are shown together, with every source and missing cost visible.</td>
     <td><strong>From route to destination</strong><br />The guided map reveals the selected hotel and nearby places instead of ending at an airport.</td>
   </tr>
 </table>
@@ -51,7 +51,7 @@ Each plan includes:
 
 ```mermaid
 flowchart LR
-    A[Enter your trip] --> B[Search 7 travel websites]
+    A[Enter your trip] --> B[Choose relevant sources from 7 websites]
     B --> C[Collect live transport and stays]
     C --> D[Build complete trip plans]
     D --> E[Compare total costs]
@@ -59,11 +59,23 @@ flowchart LR
 ```
 
 1. **You describe the trip.** Choose where you are travelling from and to, the dates and one to four travellers.
-2. **TripWeave searches seven websites.** Bright Data collects current flight, train, bus and hotel options from the sources that make sense for that route.
-3. **Results appear progressively.** TripWeave does not make the traveller wait for every website before showing the first useful plans.
+2. **TripWeave compares across seven websites.** Bright Data starts with the flight, train, bus and hotel sources that make sense for that route; the traveller can explicitly check every other compatible source.
+3. **Results appear progressively.** TripWeave does not make the traveller wait for every website before showing the first useful plans. If a custom collector breaks, Scraper Studio repairs it in the background and recovered rows appear in the same trip.
 4. **The pieces become complete trips.** Prices from different websites are converted, cleaned and combined into transport-and-stay plans.
 5. **You compare the real total.** Plans are ordered from budget to premium, while missing costs remain clearly labelled.
 6. **You explore the journey.** The guided experience follows the route across the globe, moves into the destination city, reveals the selected hotel and visits nearby attractions.
+
+### Real-time scraping when the route is new, cached when it saves time
+
+A new route uses Bright Data Scraper Studio to scrape current public listings in real time, so results reflect the latest prices the travel websites return. The first useful options appear as soon as a source responds, while the remaining sources continue in the background. A completely new or custom destination can take roughly **one to two minutes** to finish because the travel websites are being checked live.
+
+Some recent identical searches reuse a clearly timestamped real result instead of paying to scrape the same pages again. The results page also includes **Check more websites**: normal searches use the most relevant sources for the route, while this optional action runs every remaining compatible source when a traveller or judge wants the widest comparison.
+
+## A trip becomes a story
+
+![TripWeave cinematic globe starting the route in Delhi](docs/images/guided-globe.png)
+
+Opening a guided trip starts at the origin, animates the selected transport route, zooms into the destination and reveals the real selected stay and nearby attractions. Travellers can pause, replay, move between stages or explore manually.
 
 ## Bright Data is the data layer
 
@@ -81,31 +93,23 @@ Bright Data Scraper Studio powers the live comparison. Booking.com uses Bright D
 
 TripWeave does not blindly run every source for every route. Long international searches skip regional ground transport, Tripadvisor runs only when requested, and recent identical searches are reused to save Bright Data credits.
 
-## Self-healing demo
+## The live collectors repair themselves
 
-Websites change, so a scraper that works today can fail tomorrow. TripWeave includes a controlled public hotel website where the judge can see that problem and recovery in one place:
+Websites change, so a scraper that works today can fail tomorrow. TripWeave watches the real custom collectors used by the trip planner. A failed extraction, or an empty source when a peer source proves listings exist, starts this recovery flow:
 
 ```text
-Run the working scraper
+Detect failed or unexpectedly empty output
         ↓
-Change the website structure
+Ask Bright Data Self-Healing to repair the current scraper
         ↓
-Run the same scraper and show the failure
+Apply the successful patch to the same Collector ID
         ↓
-Let Bright Data propose a repair
+Re-run only the failed input
         ↓
-Judge approves the change
-        ↓
-Run the same scraper successfully again
+Add verified recovered rows to the open trip
 ```
 
-The target website, returned records, failure, proposed repair and human approval are all visible together in the recovery lab included with TripWeave.
-
-## A trip becomes a story
-
-![TripWeave cinematic globe starting the route in Delhi](docs/images/guided-globe.png)
-
-Opening a guided trip starts at the origin, animates the selected transport route, zooms into the destination and reveals the real selected stay and nearby attractions. Travellers can pause, replay, move between stages or explore manually.
+The traveller does not approve a patch or restart the search. Recovery status is visible directly on the trip page while existing real results remain usable. To protect credits, TripWeave attempts at most one repair per trip, two per day, and does not repeat a repair for the same collector within 24 hours. The separate recovery lab remains available for a repeatable before-and-after demo.
 
 ## Example result
 
@@ -157,10 +161,15 @@ Open `http://127.0.0.1:5173`.
 ```bash
 npm test
 npm run build
+npm run test:e2e:auto-heal
 npm run test:e2e:self-heal
 ```
 
-The self-healing browser test uses intercepted responses and does not spend Bright Data credits.
+The self-healing browser tests use intercepted responses and do not spend Bright Data credits.
+
+## AI-assisted development disclosure
+
+TripWeave was developed with Codex as a coding assistant. Gemini is used at runtime to organize recommendations from the real options returned by the collectors. All generated code, scraper outputs and technical decisions were reviewed and tested by the project author.
 
 ## Built with
 
