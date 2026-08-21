@@ -4,7 +4,6 @@ import path from 'node:path';
 export const COLLECTORS = {
   kayak: { id: 'c_mt1kuf7t24xwbky91k', kind: 'flight', label: 'KAYAK', enabled: true },
   skyscanner: { id: 'c_mt1gvyy0zo7nkno1q', kind: 'flight', label: 'Skyscanner', enabled: true },
-  omio: { id: 'c_mt1l31is2bxc0ik7xc', kind: 'route', label: 'Omio', enabled: true },
   twelveGo: { id: 'c_mt1kwgiug9ovbtk0m', kind: 'route', label: '12Go', enabled: true },
   redBus: { id: 'c_mt1kvbvy1jp1i1waqf', kind: 'bus', label: 'redBus', enabled: true },
   booking: { id: 'c_mt1gsvms2n4aypgvl9', kind: 'hotel', label: 'Booking.com', enabled: true, timeoutMs: 180000 },

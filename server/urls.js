@@ -29,8 +29,6 @@ export function buildCollectorUrls(query, origin, destination, { tripAdvisorLoca
   return {
     kayak: `https://www.kayak.com/flights/${origin.iata}-${destination.iata}/${query.departDate}/${query.returnDate}?sort=bestflight_a&fs=adults=${query.adults}`,
     skyscanner: `https://www.skyscanner.net/transport/flights/${origin.iata.toLowerCase()}/${destination.iata.toLowerCase()}/${compactDate(query.departDate)}/${compactDate(query.returnDate)}/?adultsv2=${query.adults}&cabinclass=economy&rtn=1`,
-    omio: `https://www.omio.com/flights/${fromSlug}/${toSlug}?date=${query.departDate}`,
-    omioReturn: `https://www.omio.com/flights/${toSlug}/${fromSlug}?date=${query.returnDate}`,
     twelveGo: `https://12go.asia/en/travel/${fromSlug}/${toSlug}?date=${query.departDate}&people=${query.adults}`,
     twelveGoReturn: `https://12go.asia/en/travel/${toSlug}/${fromSlug}?date=${query.returnDate}&people=${query.adults}`,
     redBus: `https://www.redbus.in/bus-tickets/${fromSlug}-to-${toSlug}?onward=${encodeURIComponent(redBusDate(query.departDate))}`,

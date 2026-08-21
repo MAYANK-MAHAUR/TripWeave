@@ -13,6 +13,8 @@ collector-probe*.json
 *.jpg
 *.jpeg
 *.webp
+!docs/images/
+!docs/images/*.png
 earth-preview.png
 desktop.png
 mobile.png

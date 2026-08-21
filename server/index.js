@@ -57,7 +57,7 @@ const updateJob = (job, patch) => {
   Object.assign(job, patch, { updatedAt: new Date().toISOString() });
 };
 
-const groundReturnUrlKeys = { omio: 'omioReturn', twelveGo: 'twelveGoReturn', redBus: 'redBusReturn' };
+const groundReturnUrlKeys = { twelveGo: 'twelveGoReturn', redBus: 'redBusReturn' };
 
 function buildCollectorTasks(enabledCollectors, urls) {
   return enabledCollectors.flatMap(([collectorKey, baseDefinition]) => {

@@ -9,7 +9,6 @@ import { selectCollectorsForRoute } from '../server/collectorPolicy.js';
 const expectedCollectorIds = {
   kayak: 'c_mt1kuf7t24xwbky91k',
   skyscanner: 'c_mt1gvyy0zo7nkno1q',
-  omio: 'c_mt1l31is2bxc0ik7xc',
   twelveGo: 'c_mt1kwgiug9ovbtk0m',
   redBus: 'c_mt1kvbvy1jp1i1waqf',
   booking: 'c_mt1gsvms2n4aypgvl9',
@@ -23,11 +22,9 @@ assert.equal(COLLECTORS.tripAdvisor.composable, false, 'Undated TripAdvisor pric
 
 const query = normalizeTripQuery({ from: 'Singapore', to: 'Kochi', departDate: '2026-11-05', returnDate: '2026-11-09', adults: 3 });
 const urls = buildCollectorUrls(query, { name: 'Singapore', iata: 'SIN' }, { name: 'Kochi', iata: 'COK' }, { tripAdvisorLocationId: '297633' });
-assert.equal(Object.values(urls).filter(Boolean).length, 11);
+assert.equal(Object.values(urls).filter(Boolean).length, 9);
 assert.match(urls.kayak, /SIN-COK\/2026-11-05\/2026-11-09/);
 assert.match(urls.skyscanner, /sin\/cok\/261105\/261109/);
-assert.match(urls.omio, /singapore\/kochi\?date=2026-11-05/);
-assert.match(urls.omioReturn, /kochi\/singapore\?date=2026-11-09/);
 assert.match(urls.twelveGo, /singapore\/kochi\?date=2026-11-05&people=3/);
 assert.match(urls.twelveGoReturn, /kochi\/singapore\?date=2026-11-09&people=3/);
 assert.match(urls.redBus, /singapore-to-kochi\?onward=05-Nov-2026/);
@@ -47,7 +44,7 @@ assert.equal(paired[0].amountInr, 2100, 'Separated ground legs must be summed on
 assert.deepEqual(paired[0].missing, [], 'A paired ground route must include the return leg.');
 
 const incomplete = pairRoundTripTransports([
-  { id: 'one-way', tripLeg: 'outbound', collectorKey: 'omio', mode: 'Train', operator: 'Rail', amountInr: 700, source: 'Omio', durationMinutes: 300 },
+  { id: 'one-way', tripLeg: 'outbound', collectorKey: 'twelveGo', mode: 'Train', operator: 'Rail', amountInr: 700, source: '12Go', durationMinutes: 300 },
 ]);
 assert.deepEqual(incomplete[0].missing, ['return transport'], 'One-way ground prices must stay explicitly partial.');
 
@@ -78,6 +75,6 @@ const shortRoutePolicy = selectCollectorsForRoute(COLLECTORS, { lat: 28.6139, ln
 assert.ok(shortRoutePolicy.entries.some(([key]) => key === 'redBus'), 'Short routes should retain useful ground transport collectors.');
 assert.ok(!shortRoutePolicy.entries.some(([key]) => key === 'tripAdvisor'), 'Reference-only collectors should run only when explicitly requested.');
 const longDomesticPolicy = selectCollectorsForRoute(COLLECTORS, { lat: 28.6139, lng: 77.209, country: 'IN' }, { lat: 9.9312, lng: 76.2673, country: 'IN' });
-assert.ok(longDomesticPolicy.entries.some(([key]) => key === 'omio'), 'Long domestic routes must retain train and ground options.');
+assert.ok(longDomesticPolicy.entries.some(([key]) => key === 'twelveGo'), 'Long domestic routes must retain train and ground options.');
 
-console.log(JSON.stringify({ ok: true, collectors: Object.keys(expectedCollectorIds).length, requestsPerTrip: 11, dynamicRoute: 'SIN→COK', datedSources: 7, referenceSources: 1, groundRoundTripPairing: true, cinematicTourStages: tourStages.length, antimeridianRoute: true, longRouteCollectors: longRoutePolicy.entries.length, referenceSourcesOnDemand: true }, null, 2));
+console.log(JSON.stringify({ ok: true, collectors: Object.keys(expectedCollectorIds).length, requestsPerTrip: 9, dynamicRoute: 'SIN→COK', datedSources: 6, referenceSources: 1, groundRoundTripPairing: true, cinematicTourStages: tourStages.length, antimeridianRoute: true, longRouteCollectors: longRoutePolicy.entries.length, referenceSourcesOnDemand: true }, null, 2));

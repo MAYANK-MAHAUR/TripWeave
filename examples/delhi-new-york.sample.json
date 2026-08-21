@@ -1,0 +1,85 @@
+{
+  "capturedAt": "2026-08-21T06:55:28Z",
+  "status": "partial",
+  "query": {
+    "from": "Delhi",
+    "to": "New York",
+    "departDate": "2026-09-11",
+    "returnDate": "2026-09-13",
+    "adults": 2,
+    "currency": "INR"
+  },
+  "observedRange": {
+    "minInr": 160192,
+    "maxInr": 163732,
+    "minText": "₹1,60,192",
+    "maxText": "₹1,63,732"
+  },
+  "sources": [
+    {
+      "collectorKey": "kayak",
+      "source": "KAYAK",
+      "tripLeg": "roundtrip",
+      "status": "complete",
+      "rows": 7
+    },
+    {
+      "collectorKey": "skyscanner",
+      "source": "Skyscanner",
+      "tripLeg": "roundtrip",
+      "status": "complete",
+      "rows": 0
+    },
+    {
+      "collectorKey": "booking",
+      "source": "Booking.com",
+      "tripLeg": "stay",
+      "status": "complete",
+      "rows": 28
+    },
+    {
+      "collectorKey": "expedia",
+      "source": "Expedia",
+      "tripLeg": "stay",
+      "status": "failed",
+      "rows": 0
+    }
+  ],
+  "summary": {
+    "transportOffers": 7,
+    "hotelOffers": 28,
+    "composedPlans": 4
+  },
+  "journey": {
+    "totalInr": 160192,
+    "totalText": "₹1,60,192",
+    "durationMinutes": 3012,
+    "sources": [
+      "KAYAK",
+      "Booking.com"
+    ],
+    "coverage": {
+      "complete": false,
+      "missing": [
+        "local transfer"
+      ]
+    },
+    "transport": {
+      "mode": "Flight",
+      "operator": "KLM",
+      "origin": "DEL",
+      "destination": "LGA",
+      "departure": "3:55 am",
+      "arrival": "9:17 pm",
+      "priceText": "₹1,34,163"
+    },
+    "hotel": {
+      "name": "Pod 51",
+      "location": "Midtown East, New York",
+      "rating": 8.2,
+      "ratingScale": 10,
+      "priceText": "₹26,029",
+      "source": "Booking.com"
+    }
+  }
+}
