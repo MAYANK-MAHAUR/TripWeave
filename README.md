@@ -51,7 +51,7 @@ Each plan includes:
 
 ```mermaid
 flowchart LR
-    A[Enter your trip] --> B[Choose relevant sources from 7 websites]
+    A[Enter your trip] --> B[Choose relevant verified sources]
     B --> C[Collect live transport and stays]
     C --> D[Build complete trip plans]
     D --> E[Compare total costs]
@@ -59,7 +59,7 @@ flowchart LR
 ```
 
 1. **You describe the trip.** Choose where you are travelling from and to, the dates and one to four travellers.
-2. **TripWeave compares across seven websites.** Bright Data starts with the flight, train, bus and hotel sources that make sense for that route; the traveller can explicitly check every other compatible source.
+2. **TripWeave compares across verified travel sources.** Bright Data starts with the transport and hotel collectors that make sense for that route; the traveller can explicitly check every other compatible source that has passed the live contract.
 3. **Results appear progressively.** TripWeave does not make the traveller wait for every website before showing the first useful plans. If a custom collector breaks, Scraper Studio repairs it in the background and recovered rows appear in the same trip.
 4. **The pieces become complete trips.** Prices from different websites are converted, cleaned and combined into transport-and-stay plans.
 5. **You compare the real total.** Plans are ordered from budget to premium, while missing costs remain clearly labelled.
@@ -73,19 +73,18 @@ Opening a guided trip starts at the origin, animates the selected transport rout
 
 ## Bright Data is the data layer
 
-Bright Data Scraper Studio powers the live comparison. Booking.com uses Bright Data's prebuilt scraper, while the other six sources use custom Scraper Studio collectors created for TripWeave.
+Bright Data Scraper Studio powers the live comparison. Booking.com uses Bright Data's prebuilt scraper, while TripWeave's other sources use custom Scraper Studio collectors. Only collectors that pass a real route, output-shape and page-load check are allowed into a trip.
 
-| Website | What TripWeave collects | Scraper used |
+| Website | What TripWeave collects | Current use |
 |---|---|---|
-| [KAYAK](https://www.kayak.com/flights) | Flight prices, airlines, times, duration and stops | Custom Scraper Studio collector |
-| [Skyscanner](https://www.skyscanner.net/flights) | Flight alternatives and total prices | Custom Scraper Studio collector |
-| [12Go](https://12go.asia/en) | Regional trains, buses and route options | Custom Scraper Studio collector |
-| [redBus](https://www.redbus.in/) | Bus operators, timings, availability and prices | Custom Scraper Studio collector |
-| [Booking.com](https://www.booking.com/) | Hotels, rooms, ratings and stay prices | Bright Data prebuilt scraper |
-| [Expedia](https://www.expedia.com/) | Hotel alternatives, amenities and prices | Custom Scraper Studio collector |
-| [Tripadvisor](https://www.tripadvisor.com/) | Extra hotel reference information when requested | Custom Scraper Studio collector |
+| [12Go](https://12go.asia/en) | Regional trains, buses and route options | Live custom collector |
+| [redBus](https://www.redbus.in/) | Bus operators, timings, availability and prices | Live custom collector |
+| [Booking.com](https://www.booking.com/) | Hotels, rooms, ratings and stay prices | Live Bright Data prebuilt scraper |
+| [Expedia](https://www.expedia.com/) | Hotel alternatives, amenities and prices | Live custom collector |
 
-TripWeave does not blindly run every source for every route. Long international searches skip regional ground transport, Tripadvisor runs only when requested, and recent identical searches are reused to save Bright Data credits.
+KAYAK, Skyscanner, Omio and Tripadvisor integrations remain configurable, but they are quarantined from live searches when generation fails, a route cannot be built safely, or one input expands into excessive page loads. This protects both result quality and Bright Data credits.
+
+TripWeave does not blindly run every source for every route. Long international searches skip regional ground transport, unsafe collectors stay quarantined, and recent identical searches are reused to save Bright Data credits.
 
 ## The live collectors repair themselves
 
