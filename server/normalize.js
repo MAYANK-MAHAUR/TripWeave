@@ -222,6 +222,35 @@ function composeJourneys(transports, hotels, query, origin, destination) {
   const pricedTransport = Array.from(transportGroups.values()).flatMap((items) => items.slice(0, 4));
   const pricedHotels = hotels.filter((item) => item.composable && Number.isFinite(item.amountInr) && item.amountInr > 0).sort((a, b) => a.amountInr - b.amountInr).slice(0, 7);
   const candidates = [];
+  if (!pricedTransport.length && pricedHotels.length) {
+    for (const hotel of pricedHotels) {
+      candidates.push({
+        id: `stay-${hotel.id}`,
+        label: `${hotel.name} · Stay Package`,
+        eyebrow: 'VERIFIED HOTEL STAY',
+        totalInr: hotel.amountInr,
+        totalText: formatInr(hotel.amountInr),
+        durationMinutes: null,
+        durationText: 'Destination stay',
+        modes: ['Hotel'],
+        sources: [hotel.source],
+        sourceUrl: hotel.sourceUrl,
+        coverage: { complete: false, missing: ['transport'] },
+        confidence: Math.max(70, Math.min(95, 78 + (hotel.rating ? 10 : 0))),
+        note: `Live hotel rate verified via ${hotel.source}. Transport search can be refreshed or booked separately.`,
+        breakdown: [
+          { label: `${hotel.name} · stay`, amountInr: hotel.amountInr, text: hotel.priceText, source: hotel.source, url: hotel.sourceUrl },
+        ],
+        timeline: [
+          { label: origin.iata, time: query.departDate, detail: `${origin.name || origin.iata} · departure point`, lat: origin.lat, lng: origin.lng, kind: 'transport', source: 'TripWeave', url: hotel.sourceUrl },
+          { label: destination.iata, time: query.departDate, detail: `${destination.name || destination.iata} · destination`, lat: destination.lat, lng: destination.lng, kind: 'arrival', source: hotel.source, url: hotel.sourceUrl },
+          { label: hotel.name, time: query.departDate, detail: `${hotel.location || destination.name} · stay`, lat: destination.lat, lng: destination.lng, kind: 'hotel', source: hotel.source, url: hotel.sourceUrl },
+        ],
+        transport: null,
+        hotel,
+      });
+    }
+  }
   for (const transport of pricedTransport) {
     for (const hotel of pricedHotels) {
       const totalInr = transport.amountInr + hotel.amountInr;
