@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { COLLECTORS } from '../server/config.js';
+import { COLLECTORS, DEFAULT_COLLECTOR_IDS } from '../server/config.js';
 import { buildCollectorUrls, normalizeTripQuery } from '../server/urls.js';
 import { pairRoundTripTransports, stableTransportSourceUrl } from '../server/normalize.js';
 import { buildTourPayload, buildTourStages } from '../server/tour.js';
@@ -9,20 +9,23 @@ import { buildAutomaticHealPrompt, findAutomaticRecoveryCandidates } from '../se
 import { decideCollectorSelfHealing, readCollectorSelfHealingProgress, triggerCollectorSelfHealing } from '../server/selfHealing.js';
 
 const expectedCollectorIds = {
-  kayak: 'c_mt1kuf7t24xwbky91k',
-  skyscanner: 'c_mt1gvyy0zo7nkno1q',
-  twelveGo: 'c_mt1kwgiug9ovbtk0m',
-  redBus: 'c_mt1kvbvy1jp1i1waqf',
-  booking: 'c_mt1gsvms2n4aypgvl9',
-  expedia: 'c_mt1han2523l6qju6c4',
-  tripAdvisor: 'c_mt1hc6x0rqqlh3jzi',
+  kayak: '',
+  skyscanner: 'c_mt33xxeo1713z4li9p',
+  omio: 'c_mt337hga2lec1lla6q',
+  twelveGo: 'c_mt33etd41dqlhth1m7',
+  redBus: 'c_mt33jayw26hs1jhoie',
+  booking: 'c_mt3447092rktiat9du',
+  expedia: 'c_mt33v27020zig1s19b',
+  tripAdvisor: 'c_mt33qv8j48f0fd34q',
 };
 
+assert.deepEqual(DEFAULT_COLLECTOR_IDS, expectedCollectorIds, 'Committed fallbacks must point only to the newly supplied account collectors.');
 assert.deepEqual(Object.fromEntries(Object.entries(COLLECTORS).map(([key, value]) => [key, value.id])), expectedCollectorIds);
-assert.ok(Object.values(COLLECTORS).every((collector) => collector.enabled), 'Every user-provided collector must remain enabled.');
+assert.ok(['twelveGo', 'redBus', 'booking', 'expedia'].every((key) => COLLECTORS[key].enabled), 'Every collector that passed the project contract must remain enabled.');
+assert.ok(['kayak', 'skyscanner', 'omio', 'tripAdvisor'].every((key) => !COLLECTORS[key].enabled), 'Missing, broken, route-unsafe, or runaway collectors must remain quarantined.');
 assert.ok(Object.values(COLLECTORS).every((collector) => collector.allowBatch === false), 'Automatic batch replay must stay disabled to prevent duplicate page-load spend.');
 assert.equal(COLLECTORS.booking.selfHealing, false, 'The pre-built Booking.com source must not be rewritten by the custom Scraper Studio repair flow.');
-assert.ok(['kayak', 'skyscanner', 'twelveGo', 'redBus', 'expedia'].every((key) => COLLECTORS[key].selfHealing), 'Every custom production collector must opt into automatic Self-Healing.');
+assert.ok(['twelveGo', 'redBus', 'expedia'].every((key) => COLLECTORS[key].selfHealing), 'Every active custom production collector must opt into automatic Self-Healing.');
 assert.equal(COLLECTORS.tripAdvisor.composable, false, 'Undated TripAdvisor prices must not enter composed totals.');
 assert.equal(COLLECTORS.tripAdvisor.input.max_pages, 1, 'The optional TripAdvisor reference crawl must stay on one listing page.');
 
@@ -76,10 +79,10 @@ assert.equal(tourPayload.places.length, 3, 'The local map may display up to four
 const dateLineMidpoint = interpolateGreatCircle({ lat: 10, lng: 170 }, { lat: 10, lng: -170 }, 0.5);
 assert.ok(Math.abs(Math.abs(dateLineMidpoint.lng) - 180) < 0.001, 'Great-circle interpolation must cross the antimeridian by the short path.');
 const longRoutePolicy = selectCollectorsForRoute(COLLECTORS, tourOrigin, tourDestination);
-assert.deepEqual(longRoutePolicy.primaryEntries.map(([key]) => key), ['kayak', 'booking'], 'Long-distance searches should start with one flight and one hotel source.');
-assert.deepEqual(longRoutePolicy.fallbackEntries.map(([key]) => key), ['skyscanner', 'expedia'], 'Alternative long-distance sources must remain available only as quality fallbacks.');
+assert.deepEqual(longRoutePolicy.primaryEntries.map(([key]) => key), ['booking'], 'Long-distance searches must not spend credits on quarantined flight collectors.');
+assert.deepEqual(longRoutePolicy.fallbackEntries.map(([key]) => key), ['expedia'], 'Only verified long-distance alternatives may remain available as fallbacks.');
 const fullLongRoutePolicy = selectCollectorsForRoute(COLLECTORS, tourOrigin, tourDestination, { fullComparison: true, includeReferenceSources: true });
-assert.deepEqual(fullLongRoutePolicy.primaryEntries.map(([key]) => key), ['kayak', 'skyscanner', 'booking', 'expedia', 'tripAdvisor'], 'A requested full comparison must run every compatible long-distance source, including the on-demand reference source.');
+assert.deepEqual(fullLongRoutePolicy.primaryEntries.map(([key]) => key), ['booking', 'expedia'], 'A requested full comparison must still exclude quarantined sources.');
 assert.deepEqual(fullLongRoutePolicy.fallbackEntries, [], 'Full comparison sources must run in one explicit wave rather than as automatic fallbacks.');
 const shortRoutePolicy = selectCollectorsForRoute(COLLECTORS, { lat: 28.6139, lng: 77.209 }, { lat: 26.9124, lng: 75.7873 });
 assert.ok(shortRoutePolicy.primaryEntries.some(([key]) => key === 'twelveGo'), 'Short routes should start with a multimodal ground source.');
@@ -98,33 +101,33 @@ const enoughCoreOffers = {
 };
 assert.deepEqual(selectFallbackCollectors(shortRoutePolicy.fallbackEntries, enoughCoreOffers).map(([key]) => key), [], 'Fallback collectors must not run when core category coverage is already useful.');
 const missingCoreOffers = { offers: { transports: [], hotels: [] } };
-assert.deepEqual(selectFallbackCollectors(shortRoutePolicy.fallbackEntries, missingCoreOffers).map(([key]) => key), ['skyscanner', 'redBus', 'expedia'], 'Only missing categories should trigger their alternative sources.');
+assert.deepEqual(selectFallbackCollectors(shortRoutePolicy.fallbackEntries, missingCoreOffers).map(([key]) => key), ['redBus', 'expedia'], 'Only verified missing-category fallbacks should run.');
 
-const failedKayakTask = {
-  key: 'kayak', collectorKey: 'kayak', url: urls.kayak,
-  definition: { ...COLLECTORS.kayak, collectorKey: 'kayak', sourceLabel: 'KAYAK', tripLeg: 'roundtrip' },
+const failedGroundTask = {
+  key: 'twelveGo', collectorKey: 'twelveGo', url: urls.twelveGo,
+  definition: { ...COLLECTORS.twelveGo, collectorKey: 'twelveGo', sourceLabel: '12Go', tripLeg: 'outbound' },
 };
 const automaticHealPrompt = buildAutomaticHealPrompt({
-  task: failedKayakTask,
-  source: { status: 'failed', error: 'The current selector returned no flight cards after the public layout changed.' },
+  task: failedGroundTask,
+  source: { status: 'failed', error: 'The current selector returned no route cards after the public layout changed.' },
 });
 assert.ok(automaticHealPrompt.length <= 1000, 'Production Self-Healing prompts must respect Bright Data’s 1,000-character limit.');
 assert.match(automaticHealPrompt, /same|current output schema/i);
 assert.match(automaticHealPrompt, /at most 20/i);
 assert.match(automaticHealPrompt, /Do not paginate/i);
 const recoveryCandidates = findAutomaticRecoveryCandidates({
-  tasks: [failedKayakTask, { key: 'booking', collectorKey: 'booking', url: urls.booking, definition: { ...COLLECTORS.booking, collectorKey: 'booking', sourceLabel: 'Booking.com' } }],
+  tasks: [failedGroundTask, { key: 'booking', collectorKey: 'booking', url: urls.booking, definition: { ...COLLECTORS.booking, collectorKey: 'booking', sourceLabel: 'Booking.com' } }],
   normalized: { sources: [
-    { key: 'kayak', status: 'failed', rows: 0, error: 'Selectors no longer match.' },
+    { key: 'twelveGo', status: 'failed', rows: 0, error: 'Selectors no longer match.' },
     { key: 'booking', status: 'complete', rows: 0 },
   ] },
   maxCandidates: 2,
 });
-assert.deepEqual(recoveryCandidates.map((candidate) => candidate.task.collectorKey), ['kayak'], 'Only failed or empty custom collectors should enter the automatic repair queue.');
-assert.deepEqual(findAutomaticRecoveryCandidates({ tasks: [failedKayakTask], normalized: { sources: [{ key: 'kayak', status: 'failed', rows: 0, error: 'Selectors no longer match.' }] }, maxCandidates: 0 }), [], 'Setting the per-trip repair budget to zero must disable automatic repair completely.');
-assert.deepEqual(findAutomaticRecoveryCandidates({ tasks: [failedKayakTask], normalized: { sources: [{ key: 'kayak', status: 'failed', rows: 0, error: 'Bright Data credit quota is exhausted.' }] }, maxCandidates: 1 }), [], 'Authentication, quota, and credit failures must never trigger a scraper rewrite.');
-assert.deepEqual(findAutomaticRecoveryCandidates({ tasks: [failedKayakTask], normalized: { sources: [{ key: 'kayak', kind: 'flight', status: 'complete', rows: 0 }] }, maxCandidates: 1 }), [], 'A legitimate no-results route must not trigger a rewrite without evidence from a working peer source.');
-assert.deepEqual(findAutomaticRecoveryCandidates({ tasks: [failedKayakTask], normalized: { sources: [{ key: 'kayak', kind: 'flight', status: 'complete', rows: 0 }, { key: 'skyscanner', kind: 'flight', status: 'complete', rows: 5 }] }, maxCandidates: 1 }).map((candidate) => candidate.task.collectorKey), ['kayak'], 'Empty output should trigger repair when a peer source proves that the route has live listings.');
+assert.deepEqual(recoveryCandidates.map((candidate) => candidate.task.collectorKey), ['twelveGo'], 'Only failed or empty custom collectors should enter the automatic repair queue.');
+assert.deepEqual(findAutomaticRecoveryCandidates({ tasks: [failedGroundTask], normalized: { sources: [{ key: 'twelveGo', status: 'failed', rows: 0, error: 'Selectors no longer match.' }] }, maxCandidates: 0 }), [], 'Setting the per-trip repair budget to zero must disable automatic repair completely.');
+assert.deepEqual(findAutomaticRecoveryCandidates({ tasks: [failedGroundTask], normalized: { sources: [{ key: 'twelveGo', status: 'failed', rows: 0, error: 'Bright Data credit quota is exhausted.' }] }, maxCandidates: 1 }), [], 'Authentication, quota, and credit failures must never trigger a scraper rewrite.');
+assert.deepEqual(findAutomaticRecoveryCandidates({ tasks: [failedGroundTask], normalized: { sources: [{ key: 'twelveGo', kind: 'route', status: 'complete', rows: 0 }] }, maxCandidates: 1 }), [], 'A legitimate no-results route must not trigger a rewrite without evidence from a working peer source.');
+assert.deepEqual(findAutomaticRecoveryCandidates({ tasks: [failedGroundTask], normalized: { sources: [{ key: 'twelveGo', kind: 'route', status: 'complete', rows: 0 }, { key: 'redBus', kind: 'bus', status: 'complete', rows: 5 }] }, maxCandidates: 1 }).map((candidate) => candidate.task.collectorKey), ['twelveGo'], 'Empty output should trigger repair when a peer source proves that the route has live listings.');
 
 const originalFetch = globalThis.fetch;
 const originalBrightDataToken = process.env.BRIGHT_DATA_API_TOKEN;
@@ -135,15 +138,15 @@ globalThis.fetch = async (url, options = {}) => {
   if (String(url).endsWith('/progress')) return new Response(JSON.stringify({ status: 'pending_answer', step: 'diff_ready' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 };
-await triggerCollectorSelfHealing({ collectorId: COLLECTORS.kayak.id, targetUrl: urls.kayak, prompt: automaticHealPrompt });
-const mockedProgress = await readCollectorSelfHealingProgress(COLLECTORS.kayak.id);
-await decideCollectorSelfHealing({ collectorId: COLLECTORS.kayak.id, approve: true, autoSave: true });
+await triggerCollectorSelfHealing({ collectorId: COLLECTORS.twelveGo.id, targetUrl: urls.twelveGo, prompt: automaticHealPrompt });
+const mockedProgress = await readCollectorSelfHealingProgress(COLLECTORS.twelveGo.id);
+await decideCollectorSelfHealing({ collectorId: COLLECTORS.twelveGo.id, approve: true, autoSave: true });
 globalThis.fetch = originalFetch;
 if (originalBrightDataToken === undefined) delete process.env.BRIGHT_DATA_API_TOKEN;
 else process.env.BRIGHT_DATA_API_TOKEN = originalBrightDataToken;
 assert.equal(mockedProgress.awaitingApproval, true);
-assert.match(selfHealingRequests[0].url, new RegExp(`${COLLECTORS.kayak.id}/refactor_template$`));
-assert.deepEqual(JSON.parse(selfHealingRequests[0].options.body).custom_input, [{ url: urls.kayak }]);
+assert.match(selfHealingRequests[0].url, new RegExp(`${COLLECTORS.twelveGo.id}/refactor_template$`));
+assert.deepEqual(JSON.parse(selfHealingRequests[0].options.body).custom_input, [{ url: urls.twelveGo }]);
 assert.deepEqual(JSON.parse(selfHealingRequests[2].options.body), { message: true, auto_save: true }, 'Automatic recovery must approve and auto-save the patch to the same Collector ID.');
 
-console.log(JSON.stringify({ ok: true, collectors: Object.keys(expectedCollectorIds).length, primaryLongRouteInputs: 2, fullLongRouteInputs: 5, primaryDomesticInputs: 4, fallbackOnlyWhenNeeded: true, userRequestedFullComparison: true, batchReplayDisabled: true, automaticSelfHealing: true, selfHealingAutoSave: true, dynamicRoute: 'SIN→COK', datedSources: 6, referenceSources: 1, groundRoundTripPairing: true, cinematicTourStages: tourStages.length, antimeridianRoute: true, referenceSourcesOnDemand: true }, null, 2));
+console.log(JSON.stringify({ ok: true, configuredCollectors: Object.keys(expectedCollectorIds).length, activeCollectors: Object.values(COLLECTORS).filter((collector) => collector.enabled).length, primaryLongRouteInputs: 1, fullLongRouteInputs: 2, primaryDomesticInputs: 2, fallbackOnlyWhenNeeded: true, quarantinedCollectorsExcluded: true, userRequestedFullComparison: true, batchReplayDisabled: true, automaticSelfHealing: true, selfHealingAutoSave: true, dynamicRoute: 'SIN→COK', groundRoundTripPairing: true, cinematicTourStages: tourStages.length, antimeridianRoute: true }, null, 2));
