@@ -28,6 +28,7 @@ export function buildCollectorUrls(query, origin, destination, { tripAdvisorLoca
   const toSlug = slug(destination.name || query.to);
   return {
     kayak: `https://www.kayak.com/flights/${origin.iata}-${destination.iata}/${query.departDate}/${query.returnDate}?sort=bestflight_a&fs=adults=${query.adults}`,
+    googleFlights: `https://www.google.com/travel/flights?q=Flights%20to%20${encodeURIComponent(destination.iata || destination.name)}%20from%20${encodeURIComponent(origin.iata || origin.name)}%20on%20${query.departDate}%20through%20${query.returnDate}&gl=IN&hl=en`,
     tripFlights: `https://www.trip.com/flights/${fromSlug}-to-${toSlug}/tickets-${origin.iata.toLowerCase()}-${destination.iata.toLowerCase()}?dcity=${origin.iata.toLowerCase()}&acity=${destination.iata.toLowerCase()}&ddate=${query.departDate}&rdate=${query.returnDate}`,
     skyscanner: `https://www.skyscanner.net/transport/flights/${origin.iata.toLowerCase()}/${destination.iata.toLowerCase()}/${compactDate(query.departDate)}/${compactDate(query.returnDate)}/?adultsv2=${query.adults}&cabinclass=economy&rtn=1`,
     omio: `https://www.omio.com/flights/${fromSlug}/${toSlug}`,
