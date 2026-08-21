@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="src/assets/tripweave-logo.png" alt="TripWeave logo" width="220" />
+
 # TripWeave: Plan the whole trip across the globe
 
 ### Transport, stays, nearby attractions and the likely total cost for up to four people in one live search.
@@ -8,12 +10,11 @@ Trip planning is fragmented across flight, train, bus and hotel websites, while 
 
 <p>
   <a href="https://tripweave-alpha.vercel.app/"><img alt="Open TripWeave" src="https://img.shields.io/badge/OPEN_LIVE_APP-0B2B35?style=for-the-badge&logo=vercel&logoColor=A7F3D0" /></a>
-  <a href="https://tripweave-alpha.vercel.app/self-heal"><img alt="Open the self-healing demo" src="https://img.shields.io/badge/SELF--HEALING_DEMO-FF7D66?style=for-the-badge&logoColor=071923" /></a>
 </p>
 
 ![TripWeave live Delhi to New York comparison](docs/images/trip-results.png)
 
-**[Try the live app](https://tripweave-alpha.vercel.app/)** · **[See self-healing in action](https://tripweave-alpha.vercel.app/self-heal)** · **[Scrape-Verse 2026](https://www.wemakedevs.org/hackathons/scrape-verse)**
+**[Try the live app](https://tripweave-alpha.vercel.app/)** · **[Scrape-Verse 2026](https://www.wemakedevs.org/hackathons/scrape-verse)**
 
 </div>
 
@@ -100,7 +101,7 @@ Judge approves the change
 Run the same scraper successfully again
 ```
 
-The target website, returned records, failure, proposed repair and human approval are all visible in the **[live recovery lab](https://tripweave-alpha.vercel.app/self-heal)**.
+The target website, returned records, failure, proposed repair and human approval are all visible together in the recovery lab included with TripWeave.
 
 ## A trip becomes a story
 

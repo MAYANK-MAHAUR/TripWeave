@@ -4,6 +4,7 @@ import {
   Code2, Database, ExternalLink, FlaskConical, LoaderCircle, Play, RefreshCw,
   ShieldCheck, Sparkles, Terminal, Wrench, X,
 } from 'lucide-react';
+import tripWeaveLogo from './assets/tripweave-logo.png';
 
 const HEAL_PROMPT = `The public hotel listing page changed its DOM. The card container still loads, but its classes changed and every original data-field selector now returns empty or missing hotel fields. Repair the scraper for the supplied current URL. Preserve the existing output schema and extract every visible hotel with name, location, rating, review_count and displayed nightly price. Use the new data-value attributes and current page structure. Return null for genuinely missing values and never infer data.`;
 
@@ -53,7 +54,7 @@ const timestamp = () => new Date().toLocaleTimeString([], { hour12: false, hour:
 
 function DemoHeader({ config }) {
   return <header className="self-heal-header">
-    <a className="self-heal-brand" href="/"><span className="self-heal-brand-mark"><Sparkles /></span><span><strong>TRIPWEAVE</strong><small>LIVE RECOVERY LAB</small></span></a>
+    <a className="self-heal-brand" href="/"><span className="self-heal-brand-mark brand-logo-mark"><img src={tripWeaveLogo} alt="" /></span><span><strong>TRIPWEAVE</strong><small>LIVE RECOVERY LAB</small></span></a>
     <div className="self-heal-header-right"><span className={config?.configured ? 'credit-safe connected' : 'credit-safe'}><i /> {config?.configured ? 'BRIGHT DATA API CONNECTED' : 'REAL API SETUP REQUIRED'}</span><a href="/" className="demo-back-link"><ArrowLeft /> Back to TripWeave</a></div>
   </header>;
 }

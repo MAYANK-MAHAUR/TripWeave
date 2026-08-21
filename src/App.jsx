@@ -8,6 +8,7 @@ import {
   Menu, Plane, RefreshCw, Route, Search, ShieldCheck,
   TrainFront, Users, Wifi, WifiOff, X,
 } from 'lucide-react';
+import tripWeaveLogo from './assets/tripweave-logo.png';
 
 gsap.registerPlugin(ScrollTrigger);
 const RouteTour = lazy(() => import('./RouteTour.jsx'));
@@ -29,7 +30,7 @@ function InlineLink({ children, href = '#', onClick, className = '' }) {
 function Navigation({ job }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
-  return <header className="site-header"><a className="brand" href="/" onClick={close} aria-label="TripWeave home"><span className="brand-mark"><Route /></span><span>TRIPWEAVE</span></a><nav className={open ? 'nav-links nav-open' : 'nav-links'} aria-label="Primary navigation"><a href="/#how" onClick={close}>Why TripWeave</a><a href={job?.id ? `/trip/${job.id}` : '/#planner'} onClick={close}>Live comparison</a><a href="/#pipeline" onClick={close}>How it works</a><InlineLink href="/#network" onClick={close}>Live sources</InlineLink><a className="self-heal-nav-link" href="/self-heal" onClick={close}>Self-heal demo</a></nav><button className="menu-button" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'Close menu' : 'Open menu'}>{open ? <X /> : <Menu />}</button></header>;
+  return <header className="site-header"><a className="brand" href="/" onClick={close} aria-label="TripWeave home"><span className="brand-mark brand-logo-mark"><img src={tripWeaveLogo} alt="" /></span><span>TRIPWEAVE</span></a><nav className={open ? 'nav-links nav-open' : 'nav-links'} aria-label="Primary navigation"><a href="/#how" onClick={close}>Why TripWeave</a><a href={job?.id ? `/trip/${job.id}` : '/#planner'} onClick={close}>Live comparison</a><a href="/#pipeline" onClick={close}>How it works</a><InlineLink href="/#network" onClick={close}>Live sources</InlineLink><a className="self-heal-nav-link" href="/self-heal" onClick={close}>Self-heal demo</a></nav><button className="menu-button" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? 'Close menu' : 'Open menu'}>{open ? <X /> : <Menu />}</button></header>;
 }
 
 function SearchField({ icon: Icon, label, value, onChange, type = 'text', placeholder, min, max }) {

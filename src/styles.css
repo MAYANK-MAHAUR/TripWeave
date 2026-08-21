@@ -1205,3 +1205,37 @@ body.modal-open { overflow: hidden; }
   .real-self-heal-page .self-heal-header { height: 68px; }.real-self-heal-page .self-heal-brand strong { font-size: 12px; }.real-self-heal-page .self-heal-brand small { font-size: 9px; }.real-self-heal-page .demo-back-link { font-size: 10px; }.real-heal-hero { grid-template-columns: 1fr; padding: 58px 0 38px; }.real-heal-hero h1 { font-size: clamp(49px,14.5vw,74px); }.real-heal-intro { border-left: 0; border-top: 2px solid var(--demo-coral); padding: 20px 0 0; }.real-heal-intro p { font-size: 15px; }.real-flow-rail { grid-template-columns: 1fr 1fr; }.real-flow-step { border-bottom: 1px solid var(--demo-line); padding: 10px 0; }.real-heal-workspace { padding-top: 36px; }.demo-panel-heading { display: block; }.target-dom-badge, .real-api-status { margin-top: 14px; }.real-browser-frame iframe { height: 540px; }.target-explainer { grid-template-columns: auto 1fr; }.target-explainer > span { grid-column: 2; }.real-control-panel { padding: 20px; }.collector-identity { align-items: start; grid-template-columns: 1fr; }.collector-identity > a { margin-top: 5px; }.approval-actions { flex-direction: column; }.approval-actions button { justify-content: center; }.real-proof-strip > div { min-height: 130px; padding: 18px 14px; }
   .target-site-header { grid-template-columns: 1fr auto; min-height: 65px; }.target-site-header nav { display: none; }.target-version { font-size: 9px; }.target-search { padding: 40px 20px; }.target-search form { grid-template-columns: 1fr 1fr; }.target-search label { border-bottom: 1px solid #d7d9ce; }.target-search form > button { grid-column: 1 / -1; min-height: 48px; }.target-results { padding-left: 18px; padding-right: 18px; }.target-hotel-card, .target-stay-result { gap: 12px; grid-template-columns: 78px minmax(0,1fr); }.target-hotel-image { height: 88px; }.target-hotel-price { align-items: flex-start; grid-column: 2; }.target-hotel-price button { display: none; }.target-site-footer { gap: 10px; grid-template-columns: 1fr; padding-bottom: 20px; padding-top: 20px; }.target-site-footer span:nth-child(2), .target-site-footer span:last-child { text-align: left; }
 }
+
+/* The supplied TripWeave mark is cropped in CSS so the original brand asset stays unchanged. */
+.site-header .brand-mark.brand-logo-mark,
+.self-heal-header .self-heal-brand-mark.brand-logo-mark {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  height: 34px;
+  overflow: hidden;
+  position: relative;
+  transform: none;
+  width: 54px;
+}
+.site-header .brand-mark.brand-logo-mark { margin-right: 10px; }
+.self-heal-header .self-heal-brand-mark.brand-logo-mark { margin-right: 0; }
+.brand-logo-mark img {
+  height: auto;
+  left: 50%;
+  max-width: none;
+  position: absolute;
+  top: -25px;
+  transform: translateX(-50%);
+  width: 98px;
+}
+
+.site-header .brand-logo-mark img {
+  filter: invert(1) hue-rotate(180deg) saturate(1.35) brightness(1.15);
+  mix-blend-mode: screen;
+}
+
+.self-heal-header .brand-logo-mark img {
+  mix-blend-mode: multiply;
+}
