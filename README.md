@@ -65,12 +65,6 @@ flowchart LR
 5. **You compare the real total.** Plans are ordered from budget to premium, while missing costs remain clearly labelled.
 6. **You explore the journey.** The guided experience follows the route across the globe, moves into the destination city, reveals the selected hotel and visits nearby attractions.
 
-### Real-time scraping when the route is new, cached when it saves time
-
-A new route uses Bright Data Scraper Studio to scrape current public listings in real time, so results reflect the latest prices the travel websites return. The first useful options appear as soon as a source responds, while the remaining sources continue in the background. A completely new or custom destination can take roughly **one to two minutes** to finish because the travel websites are being checked live.
-
-Some recent identical searches reuse a clearly timestamped real result instead of paying to scrape the same pages again. The results page also includes **Check more websites**: normal searches use the most relevant sources for the route, while this optional action runs every remaining compatible source when a traveller or judge wants the widest comparison.
-
 ## A trip becomes a story
 
 ![TripWeave cinematic globe starting the route in Delhi](docs/images/guided-globe.png)
