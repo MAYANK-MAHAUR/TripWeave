@@ -107,42 +107,6 @@ function AutomaticRecoveryPanel({ recoveries }) {
   </section>;
 }
 
-function MoreSourcesPanel({ job, onExpand, expanding }) {
-  if (!job?.result || !terminalStatuses.has(job.status)) return null;
-  if (job.options?.fullComparison) return <div className="full-comparison-confirmed"><ShieldCheck /><span><strong>Full comparison requested</strong>Every compatible website for this route was checked in this run.</span></div>;
-  const triggered = new Set(job.creditPolicy?.triggeredCollectors || []);
-  const possible = [
-    ...(job.creditPolicy?.fallbackCollectors || []),
-    ...(job.creditPolicy?.skippedCollectors || []).filter((item) => /on demand|reference/i.test(item.reason || '')).map((item) => item.key),
-  ];
-  const remaining = [...new Set(possible)].filter((key) => !triggered.has(key)).length;
-  return <section className="more-sources-panel" aria-labelledby="more-sources-title">
-    <div className="more-sources-signal" aria-hidden="true"><span /><span /><span /><i /></div>
-    <div><span className="eyebrow">Optional deeper search</span><h3 id="more-sources-title">Want a wider comparison?</h3><p>Your first search uses the most useful sources for this route. Check the remaining compatible websites only when you want more alternatives.</p></div>
-    <div className="more-sources-action"><button type="button" onClick={onExpand} disabled={expanding}>{expanding ? <><LoaderCircle className="spin" /> Starting full comparison</> : <><Search /> Check more websites</>}</button><small>{remaining ? `${remaining} additional source${remaining === 1 ? '' : 's'} available` : 'Runs the complete compatible source set'} · may use extra credits</small></div>
-  </section>;
-}
-
-function LegacyTripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
-  const [filter, setFilter] = useState('All');
-  const [selected, setSelected] = useState(null);
-  const journeys = job?.result?.journeys || [];
-  useEffect(() => { if (!selected || !journeys.some((journey) => journey.id === selected)) setSelected(journeys[0]?.id || null); }, [job?.id, journeys, selected]);
-  const visible = useMemo(() => {
-    if (filter === 'Lowest total') return [...journeys].sort((a, b) => a.totalInr - b.totalInr);
-    if (filter === 'Fastest') return [...journeys].sort((a, b) => (a.durationMinutes || Infinity) - (b.durationMinutes || Infinity));
-    if (filter === 'Complete only') return journeys.filter((item) => item.coverage.complete);
-    return journeys;
-  }, [filter, journeys]);
-  const current = journeys.find((item) => item.id === selected) || visible[0];
-  const filters = ['All', 'Lowest total', 'Fastest', 'Complete only'];
-  const collecting = Boolean(job && !terminalStatuses.has(job.status));
-  const offerCount = (job?.result?.offers?.transports?.length || 0) + (job?.result?.offers?.hotels?.length || 0);
-  const sourceFailures = job?.result?.sources?.filter((source) => source.status === 'failed').length || 0;
-  const snapshotMessage = collecting ? `Live preview. ${offerCount} real offers available; new rows add automatically` : job?.status === 'partial' ? 'Partial live route. Check what is still missing.' : sourceFailures ? `Complete trip found. ${sourceFailures} source${sourceFailures === 1 ? '' : 's'} unavailable` : 'All selected sources have responded';
-  return <section className="compare-section" id="compare"><div className="compare-header section-shell"><div className="section-index light-index"><span>TRIP</span><span>Live result page</span></div><div><p className="eyebrow">{job?.query ? `${job.query.from} → ${job.query.to} / ${formatDate(job.query.departDate)}` : loadingSavedTrip ? 'Restoring trip job' : 'Waiting for a route'}</p><h2>See your trip options<br />as they arrive.</h2></div><p className="compare-intro">Compare the whole trip in one place. Every price links back to where it was found, and anything still missing is clearly marked.</p></div><div className="console-shell">{loadingSavedTrip && <div className="console-loading"><LoaderCircle className="spin" /><span className="eyebrow">LOADING SAVED TRIP</span><h3>Restoring your trip...</h3><p>Your saved travel and stay options are being restored.</p></div>}{!job && !error && !loadingSavedTrip && <div className="console-empty"><Compass /><h3>Your live comparison starts with a route.</h3><p>Enter two cities and dates on the home page. Real options start appearing within seconds, and the page keeps adding more as travel sites respond.</p><a className="primary-button" href="/">Choose a route <ArrowUpRight /></a></div>}{error && <div className="console-error"><AlertTriangle /><h3>Trip request stopped</h3><p>{error}</p><a href="/" className="primary-button">Start a new search <RefreshCw /></a></div>}{job && !terminalStatuses.has(job.status) && <CollectorProgress job={job} />}{job?.status === 'error' && <div className="console-error"><AlertTriangle /><h3>Live collection failed</h3><p>{job.error}</p><a href="/" className="primary-button">Try another search <RefreshCw /></a></div>}{job?.result && !journeys.length && <OfferFallback result={job.result} />}{job?.result && journeys.length > 0 && <><div className="console-toolbar"><div className="console-brand"><Route /><span>{journeys.length} trip plans / {job.result.offers.transports.length + job.result.offers.hotels.length} live options</span></div><div className="filter-tabs" role="group" aria-label="Sort real trip combinations">{filters.map((item) => <button className={filter === item ? 'filter-tab active' : 'filter-tab'} type="button" key={item} onClick={() => setFilter(item)}>{item}</button>)}</div></div><div className={`console-snapshot ${job.status === 'partial' ? 'partial' : ''}`}>{job.status === 'partial' ? <AlertTriangle /> : <ShieldCheck />} {snapshotMessage} <span>•</span> {new Date(job.result.collectedAt).toLocaleString()}</div><div className="console-grid"><div className="trip-list" role="list" aria-label="Composed journeys"><div className="list-heading"><span>{visible.length} options / prices shown in INR</span><span>Included</span></div>{visible.map((option) => <button className={current?.id === option.id ? 'trip-row selected' : 'trip-row'} type="button" key={option.id} onClick={() => setSelected(option.id)}><span className="row-eyebrow">{option.eyebrow}</span><span className="row-title">{option.label}</span><ModePills modes={option.modes} /><span className="row-total">{option.totalText}<small>{option.sources.join(' · ')}</small></span><span className="row-meta"><Clock3 /> {option.durationText} · {option.coverage.complete ? 'all priced legs' : `missing ${option.coverage.missing.join(', ')}`}</span><ArrowRight className="row-arrow" /></button>)}</div>{current && <aside className="trip-detail" aria-live="polite"><div className="detail-topline"><span>TRIP / {current.id.slice(0, 8).toUpperCase()}</span><span className="verified"><ShieldCheck /> {current.confidence}% details found</span></div><div className="detail-heading"><p className="eyebrow">{current.eyebrow}</p><h3>{current.label}</h3><p>{current.note}</p></div><div className="detail-total"><span>Current trip total</span><strong>{current.totalText}</strong><small>{current.sources.join(' · ')}</small></div><div className="detail-breakdown"><div className="detail-label">Price breakdown</div>{current.breakdown.map((row) => <a className="breakdown-row" href={row.url || '#'} target="_blank" rel="noreferrer" key={`${row.label}-${row.source}`}><span>{row.label}<small>{row.source}</small></span><strong>{formatInr(row.amountInr)}</strong></a>)}{job.result.observedRange && <div className="breakdown-total"><span>Current price range</span><strong>{job.result.observedRange.minText} to {job.result.observedRange.maxText}</strong></div>}</div><div className="timeline"><div className="detail-label">Your trip, step by step</div>{current.timeline.map((stop, index) => <div className="timeline-row" key={`${stop.label}-${index}`}><span className="timeline-time">{stop.time || 'Not set'}</span><span className="timeline-dot"><i /></span><div><strong>{stop.label}</strong><p>{stop.detail}</p></div>{index < current.timeline.length - 1 && <span className="timeline-stem" />}</div>)}</div><div className="coverage-note"><AlertTriangle /><span>{current.coverage.complete ? 'All currently priced legs are included.' : `Not priced yet: ${current.coverage.missing.join(', ')}.`}</span></div><div className="detail-actions"><button className="primary-button detail-button" type="button" onClick={() => onOpenTour(current)}><Compass /> Open guided route</button><a className="source-button" href={current.sourceUrl || '#'} target="_blank" rel="noreferrer"><ShieldCheck /> Open travel site <ArrowUpRight /></a></div></aside>}</div></>}</div></section>;
-}
-
 function PlanDetailModal({ plan, result, travellers, tag, sourceUrlFor, onClose, onOpenTour }) {
   const closeRef = useRef();
   useEffect(() => {
@@ -180,7 +144,7 @@ function PlanDetailModal({ plan, result, travellers, tag, sourceUrlFor, onClose,
   </div>;
 }
 
-function TripConsole({ job, error, onOpenTour, onExpand, expanding = false, loadingSavedTrip = false }) {
+function TripConsole({ job, error, onOpenTour, loadingSavedTrip = false }) {
   const [filter, setFilter] = useState('All');
   const [selected, setSelected] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -252,7 +216,6 @@ function TripConsole({ job, error, onOpenTour, onExpand, expanding = false, load
         {error && <div className="console-error"><AlertTriangle /><h3>This trip could not be loaded</h3><p>{error}</p><a href="/" className="primary-button">Start a new search <RefreshCw /></a></div>}
         {collecting && <CollectorProgress job={job} />}
         {job && <AutomaticRecoveryPanel recoveries={job.recoveries} />}
-        {job && <MoreSourcesPanel job={job} onExpand={onExpand} expanding={expanding} />}
         {job?.status === 'error' && <div className="console-error"><AlertTriangle /><h3>The live search stopped</h3><p>{job.error}</p><a href="/" className="primary-button">Try another search <RefreshCw /></a></div>}
         {result && !journeys.length && <OfferFallback result={result} />}
         {result && journeys.length > 0 && <>
@@ -294,8 +257,8 @@ function Footer() {
   return <footer className="site-footer"><div className="footer-signal"><Route /><span>Travel and stay planner</span></div><div className="footer-title">TRIP<span>WEAVE</span></div><div className="footer-grid"><p>Plan travel and stays together, compare the total, and choose what fits your budget.</p><div><span>Prototype</span><strong>Scrape-Verse / 2026</strong></div><a href="#top">Back to top <ArrowUpRight /></a></div></footer>;
 }
 
-function TripPage({ job, error, onOpenTour, onExpand, expanding }) {
-  return <main className="trip-page"><div className="trip-page-bar"><a href="/"><ChevronLeft /> Back to search</a><span>Live trip comparison</span><span className={job?.status === 'ready' ? 'trip-job-ready' : ''}>{job?.status === 'ready' ? 'Prices ready' : job?.status || 'Loading'}</span></div><TripConsole job={job} error={error} loadingSavedTrip={!job && !error} onOpenTour={onOpenTour} onExpand={onExpand} expanding={expanding} /></main>;
+function TripPage({ job, error, onOpenTour }) {
+  return <main className="trip-page"><div className="trip-page-bar"><a href="/"><ChevronLeft /> Back to search</a><span>Live trip comparison</span><span className={job?.status === 'ready' ? 'trip-job-ready' : ''}>{job?.status === 'ready' ? 'Prices ready' : job?.status || 'Loading'}</span></div><TripConsole job={job} error={error} loadingSavedTrip={!job && !error} onOpenTour={onOpenTour} /></main>;
 }
 
 export default function App() {
@@ -303,7 +266,6 @@ export default function App() {
   const [job, setJob] = useState(null);
   const [requestError, setRequestError] = useState(null);
   const [tourJourney, setTourJourney] = useState(null);
-  const [expandingSources, setExpandingSources] = useState(false);
   const [pathname, setPathname] = useState(window.location.pathname);
   const tripId = pathname.match(/^\/trip\/([^/]+)/)?.[1];
   const activeTripJob = tripId && job?.id === tripId ? job : null;
@@ -337,24 +299,6 @@ export default function App() {
     setRequestError(null); setTourJourney(null);
     try { const response = await fetch('/api/trips', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query) }); const next = await response.json(); if (!response.ok && response.status !== 202) throw new Error(next.error || 'The trip could not be started.'); window.location.assign(`/trip/${next.id}`); } catch (error) { setRequestError(error.message); }
   };
-  const expandTrip = async () => {
-    if (!activeTripJob?.query || expandingSources) return;
-    setRequestError(null);
-    setExpandingSources(true);
-    try {
-      const response = await fetch('/api/trips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...activeTripJob.query, fullComparison: true, includeReferenceSources: true }),
-      });
-      const next = await response.json();
-      if (!response.ok && response.status !== 202) throw new Error(next.error || 'The full comparison could not be started.');
-      window.location.assign(`/trip/${next.id}`);
-    } catch (error) {
-      setRequestError(error.message);
-      setExpandingSources(false);
-    }
-  };
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lenis = new Lenis({ duration: reduced ? 0 : 1.05, smoothWheel: !reduced }); let rafId;
@@ -372,5 +316,5 @@ export default function App() {
   const isSelfHealPage = /^\/self-heal\/?$/.test(pathname);
   const isSelfHealTargetPage = /^\/self-heal-target\/?$/.test(pathname);
   const isStandalonePage = isSelfHealPage || isSelfHealTargetPage;
-  return <>{!isStandalonePage && <Navigation job={activeTripJob || job} />}{isSelfHealTargetPage ? <Suspense fallback={<div className="self-heal-loading">Loading the target site...</div>}><SelfHealTarget /></Suspense> : isSelfHealPage ? <Suspense fallback={<div className="self-heal-loading">Loading the repair lab...</div>}><SelfHealDemo /></Suspense> : isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} onExpand={expandTrip} expanding={expandingSources} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}{!isStandalonePage && <Footer />}{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
+  return <>{!isStandalonePage && <Navigation job={activeTripJob || job} />}{isSelfHealTargetPage ? <Suspense fallback={<div className="self-heal-loading">Loading the target site...</div>}><SelfHealTarget /></Suspense> : isSelfHealPage ? <Suspense fallback={<div className="self-heal-loading">Loading the repair lab...</div>}><SelfHealDemo /></Suspense> : isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}{!isStandalonePage && <Footer />}{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
 }

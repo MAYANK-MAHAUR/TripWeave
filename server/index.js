@@ -11,7 +11,7 @@ import { buildCollectorUrls, normalizeTripQuery } from './urls.js';
 import { normalizeCollectorResults } from './normalize.js';
 import { enrichWithGemini } from './gemini.js';
 import { buildTourPayload } from './tour.js';
-import { selectCollectorsForRoute, selectFallbackCollectors } from './collectorPolicy.js';
+import { selectCollectorsForRoute } from './collectorPolicy.js';
 import { buildAutomaticHealPrompt, findAutomaticRecoveryCandidates, hasActiveRecovery } from './collectorRecovery.js';
 import {
   decideCollectorSelfHealing, decideRealSelfHealing, readCollectorSelfHealingProgress,
@@ -27,9 +27,6 @@ const terminalStatuses = new Set(['ready', 'partial', 'error']);
 const pipelineVersion = 3;
 const cacheTtlMs = Number(process.env.TRIP_CACHE_TTL_MS || 24 * 60 * 60 * 1000);
 const staleCacheTtlMs = Number(process.env.TRIP_STALE_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000);
-const liveSearchLimitPerDay = Math.max(1, Number(process.env.TRIP_LIVE_SEARCH_LIMIT_PER_DAY || 8));
-const maxConcurrentSearches = Math.max(1, Number(process.env.TRIP_MAX_CONCURRENT_SEARCHES || 2));
-const minOffersPerCategory = Math.max(1, Number(process.env.TRIP_MIN_OFFERS_PER_CATEGORY || 4));
 const automaticHealingEnabled = String(process.env.TRIP_AUTO_HEAL_ENABLED || 'true').toLowerCase() !== 'false';
 const maxAutomaticHealsPerTrip = Math.max(0, Number(process.env.TRIP_AUTO_HEAL_MAX_PER_TRIP || 1));
 const maxAutomaticHealsPerDay = Math.max(0, Number(process.env.TRIP_AUTO_HEAL_LIMIT_PER_DAY || 2));
@@ -43,7 +40,6 @@ const cacheDirectory = configuredCacheDirectory
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.cache');
 fs.mkdirSync(cacheDirectory, { recursive: true });
 const cachePath = (key) => path.join(cacheDirectory, `${crypto.createHash('sha256').update(key).digest('hex')}.json`);
-const liveSearchBudgetPath = path.join(cacheDirectory, 'live-search-budget.json');
 const automaticHealBudgetPath = path.join(cacheDirectory, 'automatic-heal-budget.json');
 const settleInterruptedRecoveries = (record) => {
   if (!hasActiveRecovery(record?.recoveries)) return record;
@@ -72,31 +68,6 @@ const cachedJobById = (id) => {
 };
 
 const utcBudgetDay = () => new Date().toISOString().slice(0, 10);
-const readLiveSearchBudget = () => {
-  try {
-    const saved = JSON.parse(fs.readFileSync(liveSearchBudgetPath, 'utf8'));
-    if (saved.day === utcBudgetDay()) return saved;
-  } catch { /* a missing usage ledger starts a new day */ }
-  return { day: utcBudgetDay(), used: 0 };
-};
-const liveSearchBudget = () => {
-  const budget = readLiveSearchBudget();
-  return {
-    day: budget.day,
-    limit: liveSearchLimitPerDay,
-    used: budget.used,
-    remaining: Math.max(0, liveSearchLimitPerDay - budget.used),
-    resetsAt: `${new Date(Date.now() + 86400000).toISOString().slice(0, 10)}T00:00:00.000Z`,
-  };
-};
-const reserveLiveSearch = () => {
-  const budget = readLiveSearchBudget();
-  if (budget.used >= liveSearchLimitPerDay) return { allowed: false, ...liveSearchBudget() };
-  const next = { day: budget.day, used: budget.used + 1 };
-  fs.writeFileSync(liveSearchBudgetPath, JSON.stringify(next));
-  return { allowed: true, ...liveSearchBudget() };
-};
-
 const readAutomaticHealBudget = () => {
   try {
     const saved = JSON.parse(fs.readFileSync(automaticHealBudgetPath, 'utf8'));
@@ -284,27 +255,48 @@ async function executeTrip(job) {
     const placesPromise = findAttractions(destination).catch(() => []);
     const tripAdvisorLocationId = job.options?.includeReferenceSources ? await findTripAdvisorLocationId(destination.name || job.query.to) : null;
     const urls = buildCollectorUrls(job.query, origin, destination, { tripAdvisorLocationId });
-    updateJob(job, { stage: job.options?.fullComparison ? 'Opening every compatible live source' : 'Triggering core live travel collectors', progress: 18 });
+    updateJob(job, { stage: 'Triggering live travel collectors', progress: 18 });
 
     const collectorSelection = selectCollectorsForRoute(COLLECTORS, origin, destination, job.options);
     job.creditPolicy = {
-      mode: job.options?.fullComparison ? 'full_comparison_requested' : 'quality_first_budgeted',
+      mode: 'quality_first_live',
       routeDistanceKm: collectorSelection.distanceKm,
       longDistance: collectorSelection.longDistance,
       crossBorderLongDistance: collectorSelection.crossBorderLongDistance,
-      primaryCollectors: collectorSelection.primaryEntries.map(([key]) => key),
-      fallbackCollectors: collectorSelection.fallbackEntries.map(([key]) => key),
-      fallbackTriggered: [],
-      triggeredCollectors: collectorSelection.primaryEntries.map(([key]) => key),
+      activeCollectors: collectorSelection.entries.map(([key]) => key),
       skippedCollectors: collectorSelection.skipped,
       cacheHours: Math.round(cacheTtlMs / 3600000),
-      staleCacheHours: Math.round(staleCacheTtlMs / 3600000),
-      minimumOffersPerCategory: minOffersPerCategory,
       batchFallback: false,
-      userRequestedFullComparison: Boolean(job.options?.fullComparison),
     };
-    const collectorTasks = [];
-    const settledResults = [];
+    const collectorTasks = buildCollectorTasks(collectorSelection.entries, urls);
+    collectorTasks.forEach((task) => {
+      job.collectors[task.key] = {
+        key: task.key,
+        collectorKey: task.collectorKey,
+        label: task.definition.label,
+        sourceLabel: task.definition.sourceLabel,
+        tripLeg: task.definition.tripLeg,
+        status: task.url ? 'standby' : 'skipped',
+        url: task.url || null,
+        error: task.url ? null : 'A compatible destination page could not be resolved.',
+      };
+    });
+    const runnableTasks = collectorTasks.filter((task) => task.url);
+    const skippedResults = collectorTasks.filter((task) => !task.url).map((task) => ({
+      key: task.key,
+      collectorKey: task.collectorKey,
+      label: task.definition.label,
+      sourceLabel: task.definition.sourceLabel,
+      tripLeg: task.definition.tripLeg,
+      kind: task.definition.kind,
+      composable: task.definition.composable !== false,
+      status: 'skipped',
+      url: null,
+      error: 'A compatible destination page could not be resolved.',
+      durationMs: 0,
+      payload: null,
+    }));
+    const settledResults = [...skippedResults];
     const onCollectorUpdate = (update) => {
       job.collectors[update.key] = { ...job.collectors[update.key], ...update };
       const finished = Object.values(job.collectors).filter((collector) => ['complete', 'failed', 'skipped'].includes(collector.status)).length;
@@ -333,37 +325,16 @@ async function executeTrip(job) {
       }).catch(() => { /* a preview must never stop the final result */ });
       return previewQueue;
     };
-    const runTaskWave = async (tasks) => {
-      collectorTasks.push(...tasks);
-      tasks.forEach((task) => {
-        job.collectors[task.key] = { key: task.key, collectorKey: task.collectorKey, label: task.definition.label, sourceLabel: task.definition.sourceLabel, tripLeg: task.definition.tripLeg, status: task.url ? 'standby' : 'skipped', url: task.url || null, error: task.url ? null : 'A compatible destination page could not be resolved.' };
-      });
-      const skipped = tasks.filter((task) => !task.url).map((task) => ({ key: task.key, collectorKey: task.collectorKey, label: task.definition.label, sourceLabel: task.definition.sourceLabel, tripLeg: task.definition.tripLeg, kind: task.definition.kind, composable: task.definition.composable !== false, status: 'skipped', url: null, error: 'A compatible destination page could not be resolved.', durationMs: 0, payload: null }));
-      settledResults.push(...skipped);
-      const completed = await Promise.all(tasks.filter((task) => task.url).map(async (task) => {
-        const result = await runCollector(task.key, task.definition, task.url, onCollectorUpdate);
-        settledResults.push(result);
-        await publishPreview();
-        return result;
-      }));
-      await previewQueue;
-      return [...completed, ...skipped];
-    };
 
-    const primaryTasks = buildCollectorTasks(collectorSelection.primaryEntries, urls);
-    await runTaskWave(primaryTasks);
-    const primaryResult = await normalizeCollectorResults(settledResults, { query: job.query, origin, destination });
-    const fallbackEntries = selectFallbackCollectors(collectorSelection.fallbackEntries, primaryResult, { minOffers: minOffersPerCategory });
-    job.creditPolicy.fallbackTriggered = fallbackEntries.map(([key]) => key);
-    job.creditPolicy.triggeredCollectors = [...new Set([...job.creditPolicy.triggeredCollectors, ...job.creditPolicy.fallbackTriggered])];
-    if (fallbackEntries.length) {
-      updateJob(job, { stage: 'Filling only the missing travel categories', progress: Math.max(job.progress, 64) });
-      await runTaskWave(buildCollectorTasks(fallbackEntries, urls));
-    } else {
-      updateJob(job, { stage: 'Core sources returned enough options', progress: Math.max(job.progress, 68) });
-    }
+    const completedResults = await Promise.all(runnableTasks.map(async (task) => {
+      const result = await runCollector(task.key, task.definition, task.url, onCollectorUpdate);
+      settledResults.push(result);
+      await publishPreview();
+      return result;
+    }));
+    await previewQueue;
 
-    const results = [...settledResults];
+    const results = [...completedResults, ...skippedResults];
     job.rawResults = results;
     results.forEach((result) => { job.collectors[result.key] = { ...result, payload: undefined }; });
 
@@ -402,7 +373,6 @@ app.get('/api/health', (_request, response) => {
     ok: Boolean(getBrightDataKey()),
     service: 'TripWeave API',
     now: new Date().toISOString(),
-    freshSearchBudget: liveSearchBudget(),
     automaticSelfHealing: { enabled: automaticHealingEnabled, maxPerTrip: maxAutomaticHealsPerTrip, cooldownHours: automaticHealCooldownMs / 3600000, dailyBudget: automaticHealBudget() },
     ...status,
   });
@@ -460,16 +430,10 @@ app.post('/api/trips', (request, response) => {
   try {
     const query = normalizeTripQuery(request.body);
     if (!query.from || !query.to) throw new Error('Enter both origin and destination.');
-    const fullComparison = request.body?.fullComparison === true;
-    const options = {
-      includeReferenceSources: fullComparison || request.body?.includeReferenceSources === true,
-      fullComparison,
-    };
+    const options = { includeReferenceSources: request.body?.includeReferenceSources === true };
     const forceRefresh = request.body?.forceRefresh === true;
     const canonicalQuery = { ...query, from: query.from.toLowerCase(), to: query.to.toLowerCase() };
-    const cacheKey = options.includeReferenceSources || options.fullComparison
-      ? JSON.stringify({ query: canonicalQuery, includeReferenceSources: options.includeReferenceSources, fullComparison: options.fullComparison })
-      : JSON.stringify(canonicalQuery);
+    const cacheKey = options.includeReferenceSources ? JSON.stringify({ query: canonicalQuery, includeReferenceSources: true }) : JSON.stringify(canonicalQuery);
     if (!forceRefresh) {
       const reusableJob = [...jobs.values()].find((candidate) => candidate.cacheKey === cacheKey
         && candidate.status !== 'error'
@@ -482,17 +446,6 @@ app.post('/api/trips', (request, response) => {
       if (cached) cache.set(cacheKey, cached);
     }
     if (!forceRefresh && cached && isCurrentCache(cached) && Date.now() - cached.at < cacheTtlMs) return response.status(200).json({ ...settleInterruptedRecoveries(cached.result), cached: true, creditSaved: true });
-    const staleCachedResult = cached && isCurrentCache(cached) && Date.now() - cached.at < staleCacheTtlMs ? settleInterruptedRecoveries(cached.result) : null;
-    const activeSearches = [...jobs.values()].filter((candidate) => !terminalStatuses.has(candidate.status) && candidate.status !== 'error').length;
-    if (activeSearches >= maxConcurrentSearches) {
-      if (staleCachedResult) return response.status(200).json({ ...staleCachedResult, cached: true, stale: true, creditSaved: true, creditReason: 'A recent real result was reused while live collection capacity was full.' });
-      return response.status(429).json({ error: 'Live collection is already busy. Try this route again after the current searches finish.', freshSearchBudget: liveSearchBudget() });
-    }
-    const reservation = reserveLiveSearch();
-    if (!reservation.allowed) {
-      if (staleCachedResult) return response.status(200).json({ ...staleCachedResult, cached: true, stale: true, creditSaved: true, creditReason: 'A recent real result was reused because today’s live-search budget is complete.' });
-      return response.status(429).json({ error: 'Today’s live-search budget is complete. Cached routes still work without spending more Bright Data credits.', freshSearchBudget: reservation });
-    }
     const job = { id: crypto.randomUUID(), cacheKey, query, options, creditPolicy: null, status: 'queued', stage: 'Queued', progress: 0, collectors: {}, recoveries: {}, locations: null, result: null, error: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     jobs.set(job.id, job);
     executeTrip(job);
