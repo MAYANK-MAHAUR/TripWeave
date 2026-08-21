@@ -88,21 +88,28 @@ img { display: block; max-width: 100%; }
 .search-card { background: var(--midnight-2); border: 1px solid var(--line-dark); bottom: 3px; color: var(--white); left: clamp(20px, 5vw, 80px); padding: 18px 20px 13px; position: absolute; right: clamp(20px, 5vw, 80px); z-index: 2; }
 .search-card-head, .search-foot { align-items: center; display: flex; font: 500 9px var(--mono); justify-content: space-between; letter-spacing: .09em; text-transform: uppercase; }
 .search-card-head { border-bottom: 1px solid var(--line-dark); padding-bottom: 13px; }
-.search-card-head > span:first-child { align-items: center; display: inline-flex; gap: 8px; }
+.search-card-title-wrap { align-items: center; display: inline-flex; gap: 9px; }
+.search-card-title-wrap > svg { flex: 0 0 auto; }
+.search-card-title-wrap > span { display: flex; flex-direction: column; gap: 4px; }
+.search-card-title-wrap strong { color: var(--white); font: 600 11px var(--display); letter-spacing: .02em; text-transform: none; }
+.search-card-title-wrap small { color: rgba(248,251,245,.52); font: 500 8px var(--mono); letter-spacing: .04em; text-transform: none; }
 .search-card-head svg { color: var(--coral); height: 15px; width: 15px; }
 .search-live { color: var(--teal-dark); }
 .search-live .live-dot { margin-right: 7px; }
 .search-grid { display: grid; gap: 12px; grid-template-columns: 1.25fr 1.25fr .85fr 1fr 1.2fr; padding: 18px 0 15px; }
-.search-field { min-width: 0; }
+.search-field { border: 1px solid transparent; min-width: 0; padding: 8px 9px 0; transition: border-color .2s ease, background .2s ease; }
+.search-field:focus-within, .search-field:hover { background: rgba(183,239,215,.045); border-color: rgba(183,239,215,.2); }
 .field-label { color: rgba(248,251,245,.58); display: block; font-size: 8px; margin-bottom: 7px; }
 .field-input { align-items: center; border-bottom: 1px solid rgba(248,251,245,.28); display: flex; gap: 8px; }
 .field-input svg { color: var(--coral); height: 14px; width: 14px; }
-.field-input input { background: transparent; border: 0; color: var(--white); color-scheme: dark; min-width: 0; outline: 0; padding: 0 0 9px; width: 100%; }
+.field-input input { background: transparent; border: 0; color: var(--white); color-scheme: dark; cursor: text; min-width: 0; outline: 0; padding: 0 0 9px; width: 100%; }
 .field-input input::placeholder { color: rgba(248,251,245,.42); }
 .search-submit { align-items: center; align-self: end; background: var(--coral); border: 0; color: var(--midnight); cursor: pointer; display: inline-flex; font: 600 10px var(--mono); gap: 9px; height: 42px; justify-content: center; letter-spacing: .06em; text-transform: uppercase; transition: background .2s ease, transform .2s ease; }
 .search-submit:hover { background: var(--teal); color: var(--midnight); transform: translateY(-2px); }
 .search-submit svg { height: 15px; width: 15px; }
 .search-foot { border-top: 1px solid var(--line-dark); color: rgba(248,251,245,.46); padding-top: 11px; }
+.search-foot-action { align-items: center; color: var(--teal-dark); display: inline-flex; gap: 7px; }
+.search-foot-action i { background: var(--coral); border-radius: 50%; display: inline-block; height: 5px; width: 5px; }
 .hero-status { bottom: 42px; color: var(--muted); display: flex; gap: 28px; position: absolute; right: clamp(20px, 8vw, 130px); transform: translateY(72px); z-index: 1; }
 .hero-status div { border-left: 1px solid rgba(255,255,255,.22); padding-left: 12px; }
 .hero-status span { display: block; font: 500 8px var(--mono); letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
