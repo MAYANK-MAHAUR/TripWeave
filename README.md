@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="src/assets/tripweave-logo.png" alt="TripWeave logo" width="220" />
-
 # TripWeave: Plan the whole trip across the globe
 
 ### Transport, stays, nearby attractions and the likely total cost for up to four people in one live search.
