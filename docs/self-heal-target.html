@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityStay Jaipur - TripWeave recovery target</title>
+  <style>
+    :root { --ink:#2e342e; --muted:#687168; --line:#d7d9ce; --paper:#fffef9; --sand:#f3eee2; --coral:#e96f50; --leaf:#73936c; --ochre:#d0a547; }
+    * { box-sizing:border-box; } body { background:var(--paper); color:var(--ink); font-family:Arial,sans-serif; margin:0; } a { color:inherit; text-decoration:none; }
+    header { align-items:center; border-bottom:1px solid var(--line); display:grid; grid-template-columns:1fr auto 1fr; min-height:78px; padding:0 clamp(22px,5vw,76px); }
+    .brand { align-items:center; display:flex; font-family:monospace; font-size:15px; font-weight:700; gap:10px; letter-spacing:.12em; }.brand i { align-items:center; background:var(--coral); color:white; display:flex; font-style:normal; height:34px; justify-content:center; width:34px; }
+    nav { display:flex; gap:34px; } nav a { color:var(--muted); font-size:14px; font-weight:700; }.version { color:var(--leaf); font:700 11px monospace; justify-self:end; letter-spacing:.07em; }.version::before { background:currentColor; border-radius:50%; content:''; display:inline-block; height:7px; margin-right:8px; width:7px; } body.broken .version { color:#b94f37; }
+    .hero { background:var(--sand); display:grid; gap:50px; grid-template-columns:minmax(290px,.7fr) minmax(500px,1.3fr); padding:clamp(50px,7vw,105px) clamp(22px,7vw,105px) 70px; }.hero p { color:#b94f37; font:700 12px monospace; letter-spacing:.08em; margin:0 0 15px; text-transform:uppercase; }.hero h1 { font-size:clamp(44px,5.5vw,82px); letter-spacing:-.07em; line-height:.93; margin:0; }.search { align-self:end; background:white; border:1px solid var(--line); display:grid; grid-template-columns:1.1fr 1fr 1fr auto; padding:12px; }.search div { border-right:1px solid var(--line); padding:8px 14px; }.search span { color:#7c847b; display:block; font:700 10px monospace; letter-spacing:.07em; margin-bottom:9px; text-transform:uppercase; }.search strong { font-size:14px; }.search button { background:#2f3b34; border:0; color:white; font:700 12px monospace; min-width:150px; text-transform:uppercase; }
+    main { margin:0 auto; max-width:1200px; padding:55px 25px 75px; }.results-head { align-items:end; display:flex; justify-content:space-between; }.results-head p { color:var(--leaf); font:700 11px monospace; letter-spacing:.07em; margin:0 0 9px; text-transform:uppercase; }.results-head h2 { font-size:36px; letter-spacing:-.05em; margin:0; }.sort { border:1px solid var(--line); color:var(--muted); font-size:13px; padding:10px 13px; }.stay-list { display:grid; gap:14px; margin-top:28px; }
+    .hotel-card,.stay-result { align-items:center; background:white; border:1px solid var(--line); display:grid; gap:20px; grid-template-columns:125px minmax(0,1fr) auto; padding:15px; } body.broken .stay-result { border-left:4px solid var(--coral); }.image { align-items:center; color:white; display:flex; font-size:18px; font-weight:700; height:105px; justify-content:center; }.coral { background:#df765e; }.ochre { background:var(--ochre); }.leaf { background:#7f9a77; }.hotel-name,.stay-title { font-size:20px; font-weight:700; letter-spacing:-.035em; margin:0 0 9px; }.hotel-location,.neighbourhood { color:var(--muted); font-size:14px; }.rating { align-items:center; display:flex; gap:7px; margin-top:13px; }.rating strong,.rating em { color:#b94f37; font:700 14px monospace; font-style:normal; }.rating span { color:#747c74; font-size:12px; }.price { align-items:flex-end; display:flex; flex-direction:column; min-width:130px; }.price small { color:#7a827a; font-size:11px; }.price strong,.nightly-cost { font:700 20px monospace; margin:7px 0 14px; }.price button { background:transparent; border:1px solid #aeb5ad; font:700 11px monospace; min-height:38px; padding:0 13px; text-transform:uppercase; }
+    footer { align-items:center; background:#2f3b34; color:rgba(255,255,255,.7); display:grid; font-size:12px; grid-template-columns:1fr 1fr 1fr; min-height:90px; padding:0 clamp(22px,5vw,76px); } footer strong { color:white; font:700 14px monospace; letter-spacing:.1em; } footer span:nth-child(2) { text-align:center; } footer span:last-child { text-align:right; }
+    @media(max-width:720px){ header{grid-template-columns:1fr auto} nav{display:none}.hero{grid-template-columns:1fr;padding:40px 20px}.search{grid-template-columns:1fr 1fr}.search button{grid-column:1/-1;min-height:48px}.hotel-card,.stay-result{grid-template-columns:78px 1fr}.image{height:88px}.price{align-items:flex-start;grid-column:2}.price button{display:none}footer{gap:10px;grid-template-columns:1fr;padding-bottom:20px;padding-top:20px}footer span:nth-child(2),footer span:last-child{text-align:left}}
+  </style>
+</head>
+<body>
+  <header><a class="brand" href="#results"><i>CS</i>CITYSTAY</a><nav><a href="#results">Stays</a><a href="#results">Trips</a><a href="#results">Saved</a></nav><span class="version"></span></header>
+  <section class="hero"><div><p>Stay somewhere memorable</p><h1>Jaipur stays,<br>clearly compared.</h1></div><div class="search"><div><span>Destination</span><strong>⌖ Jaipur</strong></div><div><span>Check in</span><strong>12 Oct 2026</strong></div><div><span>Check out</span><strong>14 Oct 2026</strong></div><button type="button">Search stays</button></div></section>
+  <main id="results"><div class="results-head"><div><p>✓ Public hotel prices</p><h2>3 stays found</h2></div><span class="sort">Recommended first</span></div><div class="stay-list"></div></main>
+  <footer><strong>CITYSTAY</strong><span>Controlled target for a real scraper recovery demonstration.</span><span>Jaipur / public fixture</span></footer>
+  <script>
+    const stays = [
+      {name:'Rambagh Palace',location:'Bhawani Singh Road, Jaipur',rating:'4.9',reviews:'1,842 reviews',price:'₹18,500',code:'RP',tone:'coral'},
+      {name:'The Johri',location:'Gopalji ka Rasta, Jaipur',rating:'4.8',reviews:'624 reviews',price:'₹9,200',code:'TJ',tone:'ochre'},
+      {name:'28 Kothi',location:'Civil Lines, Jaipur',rating:'4.7',reviews:'391 reviews',price:'₹6,800',code:'28',tone:'leaf'}
+    ];
+    const broken = new URLSearchParams(location.search).get('version') === 'broken';
+    document.body.classList.toggle('broken', broken);
+    document.querySelector('.version').textContent = `DEMO TARGET / DOM ${broken ? 'V2' : 'V1'}`;
+    document.querySelector('.stay-list').innerHTML = stays.map(stay => broken ? `
+      <section class="stay-result" data-qa="listing-tile-v2">
+        <div class="image ${stay.tone}">${stay.code}</div><div><p class="stay-title" data-value="property-name">${stay.name}</p><div class="neighbourhood" data-value="area">⌖ ${stay.location}</div><div class="rating"><em data-value="guest-score">${stay.rating}</em><span>★ ${stay.reviews}</span></div></div><aside class="price"><small>Price per night</small><span class="nightly-cost" data-value="nightly">${stay.price}</span><button>See rooms</button></aside>
+      </section>` : `
+      <article class="hotel-card" data-qa="property-card">
+        <div class="image ${stay.tone}">${stay.code}</div><div><h2 class="hotel-name" data-field="name">${stay.name}</h2><p class="hotel-location" data-field="location">⌖ ${stay.location}</p><div class="rating"><strong data-field="rating">${stay.rating}</strong><span>★ ${stay.reviews}</span></div></div><div class="price"><small>Price per night</small><strong data-field="price">${stay.price}</strong><button>See rooms</button></div>
+      </article>`).join('');
+  </script>
+</body>
+</html>
