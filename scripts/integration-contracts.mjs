@@ -4,7 +4,7 @@ import { buildCollectorUrls, normalizeTripQuery } from '../server/urls.js';
 import { pairRoundTripTransports, stableTransportSourceUrl } from '../server/normalize.js';
 import { buildTourPayload, buildTourStages } from '../server/tour.js';
 import { interpolateGreatCircle } from '../src/tourGeometry.js';
-import { selectCollectorsForRoute, selectFallbackCollectors } from '../server/collectorPolicy.js';
+import { selectCollectorsForRoute } from '../server/collectorPolicy.js';
 import { buildAutomaticHealPrompt, findAutomaticRecoveryCandidates } from '../server/collectorRecovery.js';
 import { decideCollectorSelfHealing, readCollectorSelfHealingProgress, triggerCollectorSelfHealing } from '../server/selfHealing.js';
 
@@ -78,30 +78,15 @@ assert.equal(tourPayload.hotel.locationAccuracy, 'matched');
 assert.equal(tourPayload.places.length, 3, 'The local map may display up to four real place pins.');
 const dateLineMidpoint = interpolateGreatCircle({ lat: 10, lng: 170 }, { lat: 10, lng: -170 }, 0.5);
 assert.ok(Math.abs(Math.abs(dateLineMidpoint.lng) - 180) < 0.001, 'Great-circle interpolation must cross the antimeridian by the short path.');
+
 const longRoutePolicy = selectCollectorsForRoute(COLLECTORS, tourOrigin, tourDestination);
-assert.deepEqual(longRoutePolicy.primaryEntries.map(([key]) => key), ['booking'], 'Long-distance searches must not spend credits on quarantined flight collectors.');
-assert.deepEqual(longRoutePolicy.fallbackEntries.map(([key]) => key), ['expedia'], 'Only verified long-distance alternatives may remain available as fallbacks.');
-const fullLongRoutePolicy = selectCollectorsForRoute(COLLECTORS, tourOrigin, tourDestination, { fullComparison: true, includeReferenceSources: true });
-assert.deepEqual(fullLongRoutePolicy.primaryEntries.map(([key]) => key), ['booking', 'expedia'], 'A requested full comparison must still exclude quarantined sources.');
-assert.deepEqual(fullLongRoutePolicy.fallbackEntries, [], 'Full comparison sources must run in one explicit wave rather than as automatic fallbacks.');
+assert.deepEqual(longRoutePolicy.entries.map(([key]) => key), ['booking', 'expedia'], 'Long-distance searches must include active flight and stay sources.');
 const shortRoutePolicy = selectCollectorsForRoute(COLLECTORS, { lat: 28.6139, lng: 77.209 }, { lat: 26.9124, lng: 75.7873 });
-assert.ok(shortRoutePolicy.primaryEntries.some(([key]) => key === 'twelveGo'), 'Short routes should start with a multimodal ground source.');
-assert.ok(shortRoutePolicy.fallbackEntries.some(([key]) => key === 'redBus'), 'redBus must remain available when the primary ground source has too few offers.');
-assert.ok(!shortRoutePolicy.primaryEntries.some(([key]) => key === 'tripAdvisor'), 'Reference-only collectors should run only when explicitly requested.');
+assert.ok(shortRoutePolicy.entries.some(([key]) => key === 'twelveGo'), 'Short routes should start with a multimodal ground source.');
+assert.ok(shortRoutePolicy.entries.some(([key]) => key === 'redBus'), 'redBus must be included in ground sources.');
+assert.ok(!shortRoutePolicy.entries.some(([key]) => key === 'tripAdvisor'), 'Reference-only collectors should run only when explicitly requested.');
 const longDomesticPolicy = selectCollectorsForRoute(COLLECTORS, { lat: 28.6139, lng: 77.209, country: 'IN' }, { lat: 9.9312, lng: 76.2673, country: 'IN' });
-assert.ok(longDomesticPolicy.primaryEntries.some(([key]) => key === 'twelveGo'), 'Long domestic routes must retain train and ground options in the primary wave.');
-const enoughCoreOffers = {
-  offers: {
-    transports: [
-      ...Array.from({ length: 4 }, (_, index) => ({ mode: 'Flight', id: `flight-${index}` })),
-      ...Array.from({ length: 4 }, (_, index) => ({ mode: 'Train', id: `ground-${index}` })),
-    ],
-    hotels: Array.from({ length: 4 }, (_, index) => ({ id: `hotel-${index}` })),
-  },
-};
-assert.deepEqual(selectFallbackCollectors(shortRoutePolicy.fallbackEntries, enoughCoreOffers).map(([key]) => key), [], 'Fallback collectors must not run when core category coverage is already useful.');
-const missingCoreOffers = { offers: { transports: [], hotels: [] } };
-assert.deepEqual(selectFallbackCollectors(shortRoutePolicy.fallbackEntries, missingCoreOffers).map(([key]) => key), ['redBus', 'expedia'], 'Only verified missing-category fallbacks should run.');
+assert.ok(longDomesticPolicy.entries.some(([key]) => key === 'twelveGo'), 'Long domestic routes must retain train and ground options.');
 
 const failedGroundTask = {
   key: 'twelveGo', collectorKey: 'twelveGo', url: urls.twelveGo,
@@ -149,4 +134,4 @@ assert.match(selfHealingRequests[0].url, new RegExp(`${COLLECTORS.twelveGo.id}/r
 assert.deepEqual(JSON.parse(selfHealingRequests[0].options.body).custom_input, [{ url: urls.twelveGo }]);
 assert.deepEqual(JSON.parse(selfHealingRequests[2].options.body), { message: true, auto_save: true }, 'Automatic recovery must approve and auto-save the patch to the same Collector ID.');
 
-console.log(JSON.stringify({ ok: true, configuredCollectors: Object.keys(expectedCollectorIds).length, activeCollectors: Object.values(COLLECTORS).filter((collector) => collector.enabled).length, primaryLongRouteInputs: 1, fullLongRouteInputs: 2, primaryDomesticInputs: 2, fallbackOnlyWhenNeeded: true, quarantinedCollectorsExcluded: true, userRequestedFullComparison: true, batchReplayDisabled: true, automaticSelfHealing: true, selfHealingAutoSave: true, dynamicRoute: 'SIN→COK', groundRoundTripPairing: true, cinematicTourStages: tourStages.length, antimeridianRoute: true }, null, 2));
+console.log(JSON.stringify({ ok: true, configuredCollectors: Object.keys(expectedCollectorIds).length, activeCollectors: Object.values(COLLECTORS).filter((collector) => collector.enabled).length, quarantinedCollectorsExcluded: true, batchReplayDisabled: true, automaticSelfHealing: true, selfHealingAutoSave: true, dynamicRoute: 'SIN→COK', groundRoundTripPairing: true, cinematicTourStages: tourStages.length, antimeridianRoute: true }, null, 2));
