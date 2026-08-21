@@ -12,6 +12,7 @@ import {
 gsap.registerPlugin(ScrollTrigger);
 const RouteTour = lazy(() => import('./RouteTour.jsx'));
 const SelfHealDemo = lazy(() => import('./SelfHealDemo.jsx'));
+const SelfHealTarget = lazy(() => import('./SelfHealTarget.jsx'));
 const terminalStatuses = new Set(['ready', 'partial', 'error']);
 const modeIcons = { Flight: Plane, Train: TrainFront, Bus: BusFront, Cab: CarFront, Van: BusFront, Hotel };
 const day = (offset) => { const date = new Date(); date.setDate(date.getDate() + offset); return date.toISOString().slice(0, 10); };
@@ -295,5 +296,7 @@ export default function App() {
   }, []);
   const isTripPage = /^\/trip\//.test(pathname);
   const isSelfHealPage = /^\/self-heal\/?$/.test(pathname);
-  return <>{!isSelfHealPage && <Navigation job={activeTripJob || job} />}{isSelfHealPage ? <Suspense fallback={<div className="self-heal-loading">Loading the repair lab...</div>}><SelfHealDemo /></Suspense> : isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}{!isSelfHealPage && <Footer />}{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
+  const isSelfHealTargetPage = /^\/self-heal-target\/?$/.test(pathname);
+  const isStandalonePage = isSelfHealPage || isSelfHealTargetPage;
+  return <>{!isStandalonePage && <Navigation job={activeTripJob || job} />}{isSelfHealTargetPage ? <Suspense fallback={<div className="self-heal-loading">Loading the target site...</div>}><SelfHealTarget /></Suspense> : isSelfHealPage ? <Suspense fallback={<div className="self-heal-loading">Loading the repair lab...</div>}><SelfHealDemo /></Suspense> : isTripPage ? <TripPage job={activeTripJob} error={requestError} onOpenTour={setTourJourney} /> : <main><Hero health={health} job={null} onSearch={searchTrip} /><ValueSection /><PipelineSection job={null} health={health} /><HackathonBand /></main>}{!isStandalonePage && <Footer />}{tourJourney && activeTripJob?.result && <Suspense fallback={null}><RouteTour tripId={activeTripJob.id} onClose={() => setTourJourney(null)} trip={activeTripJob.result} journey={tourJourney} /></Suspense>}</>;
 }

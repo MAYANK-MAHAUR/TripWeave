@@ -12,6 +12,10 @@ import { normalizeCollectorResults } from './normalize.js';
 import { enrichWithGemini } from './gemini.js';
 import { buildTourPayload } from './tour.js';
 import { selectCollectorsForRoute } from './collectorPolicy.js';
+import {
+  decideRealSelfHealing, readDemoCollection, readRealSelfHealingProgress,
+  selfHealingConfig, triggerDemoCollection, triggerRealSelfHealing,
+} from './selfHealing.js';
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
@@ -161,6 +165,54 @@ async function executeTrip(job) {
 app.get('/api/health', (_request, response) => {
   const status = configStatus();
   response.json({ ok: Boolean(getBrightDataKey()), service: 'TripWeave API', now: new Date().toISOString(), ...status });
+});
+
+const creditConfirmed = (request) => request.get('x-tripweave-credit-confirm') === 'judge-approved';
+
+app.get('/api/self-heal/config', (_request, response) => response.json(selfHealingConfig()));
+
+app.post('/api/self-heal/run', async (request, response) => {
+  if (!creditConfirmed(request)) return response.status(428).json({ error: 'Confirm the real-credit action before starting a collector.' });
+  try {
+    return response.status(202).json(await triggerDemoCollection(request.body?.version));
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
+app.get('/api/self-heal/run/:collectionId', async (request, response) => {
+  try {
+    const result = await readDemoCollection(request.params.collectionId);
+    return response.status(result.status === 'collecting' ? 202 : 200).json(result);
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
+app.post('/api/self-heal/heal', async (request, response) => {
+  if (!creditConfirmed(request)) return response.status(428).json({ error: 'Confirm the real-credit action before starting Self-Healing.' });
+  try {
+    return response.status(202).json(await triggerRealSelfHealing(request.body?.prompt));
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
+app.get('/api/self-heal/heal', async (_request, response) => {
+  try {
+    return response.json(await readRealSelfHealingProgress());
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
+});
+
+app.post('/api/self-heal/heal/decision', async (request, response) => {
+  if (!creditConfirmed(request)) return response.status(428).json({ error: 'Confirm the approval decision before resuming Self-Healing.' });
+  try {
+    return response.json(await decideRealSelfHealing(request.body?.approve, request.body?.autoSave !== false));
+  } catch (error) {
+    return response.status(502).json({ error: error.message });
+  }
 });
 
 app.post('/api/trips', (request, response) => {
