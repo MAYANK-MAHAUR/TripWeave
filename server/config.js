@@ -23,8 +23,8 @@ const configuredCollector = (environmentName, fallbackId, definition) => {
 
 export const COLLECTORS = {
   kayak: configuredCollector('BRIGHT_DATA_COLLECTOR_KAYAK', DEFAULT_COLLECTOR_IDS.kayak, { kind: 'flight', label: 'KAYAK', allowBatch: false, selfHealing: true }),
-  skyscanner: configuredCollector('BRIGHT_DATA_COLLECTOR_SKYSCANNER', DEFAULT_COLLECTOR_IDS.skyscanner, { kind: 'flight', label: 'Skyscanner', allowBatch: false, selfHealing: true, enabled: false, disabledReason: 'The supplied collector has a stale results selector and its repair did not pass preview validation.' }),
-  omio: configuredCollector('BRIGHT_DATA_COLLECTOR_OMIO', DEFAULT_COLLECTOR_IDS.omio, { kind: 'flight', label: 'Omio', allowBatch: false, selfHealing: true, enabled: false, disabledReason: 'The collector works for a canonical route URL but cannot safely build date-specific URLs for arbitrary searches.' }),
+  skyscanner: configuredCollector('BRIGHT_DATA_COLLECTOR_SKYSCANNER', DEFAULT_COLLECTOR_IDS.skyscanner, { kind: 'flight', label: 'Skyscanner', allowBatch: false, selfHealing: true }),
+  omio: configuredCollector('BRIGHT_DATA_COLLECTOR_OMIO', DEFAULT_COLLECTOR_IDS.omio, { kind: 'flight', label: 'Omio', allowBatch: false, selfHealing: true }),
   twelveGo: configuredCollector('BRIGHT_DATA_COLLECTOR_TWELVE_GO', DEFAULT_COLLECTOR_IDS.twelveGo, { kind: 'route', label: '12Go', allowBatch: false, selfHealing: true }),
   redBus: configuredCollector('BRIGHT_DATA_COLLECTOR_REDBUS', DEFAULT_COLLECTOR_IDS.redBus, { kind: 'bus', label: 'redBus', allowBatch: false, selfHealing: true }),
   booking: configuredCollector('BRIGHT_DATA_COLLECTOR_BOOKING', DEFAULT_COLLECTOR_IDS.booking, { kind: 'hotel', label: 'Booking.com', timeoutMs: 180000, allowBatch: false, selfHealing: false }),

@@ -22,13 +22,21 @@ const number = (value) => {
   return matches?.length ? Number(matches[matches.length - 1]) : null;
 };
 const currency = (row, value, fallback = null) => {
-  const explicit = first(row.currency, value?.currency, value?.currency_code, value?.code);
-  if (explicit) return String(explicit).replace(/[^A-Za-z]/g, '').toUpperCase() || fallback;
-  const raw = JSON.stringify(value ?? '');
-  if (raw.includes('₹')) return 'INR';
-  if (raw.includes('$')) return 'USD';
-  if (raw.includes('€')) return 'EUR';
-  if (raw.includes('£')) return 'GBP';
+  const explicit = first(row?.currency, value?.currency, value?.currency_code, value?.code);
+  if (explicit) {
+    const rawExplicit = String(explicit).trim();
+    if (rawExplicit.includes('₹') || rawExplicit.includes('INR')) return 'INR';
+    if (rawExplicit.includes('$') || rawExplicit.includes('USD')) return 'USD';
+    if (rawExplicit.includes('€') || rawExplicit.includes('EUR')) return 'EUR';
+    if (rawExplicit.includes('£') || rawExplicit.includes('GBP')) return 'GBP';
+    const lettersOnly = rawExplicit.replace(/[^A-Za-z]/g, '').toUpperCase();
+    if (lettersOnly) return lettersOnly;
+  }
+  const raw = `${JSON.stringify(value ?? '')} ${JSON.stringify(row?.price_text ?? '')}`;
+  if (raw.includes('₹') || raw.includes('INR')) return 'INR';
+  if (raw.includes('$') || raw.includes('USD')) return 'USD';
+  if (raw.includes('€') || raw.includes('EUR')) return 'EUR';
+  if (raw.includes('£') || raw.includes('GBP')) return 'GBP';
   return fallback;
 };
 const durationMinutes = (value) => {
