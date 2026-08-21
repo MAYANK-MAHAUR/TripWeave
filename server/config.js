@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const DEFAULT_COLLECTOR_IDS = {
-  kayak: '',
+  kayak: 'c_mt34f4nd154yqg3cmu',
   skyscanner: 'c_mt33xxeo1713z4li9p',
   omio: 'c_mt337hga2lec1lla6q',
   twelveGo: 'c_mt33etd41dqlhth1m7',
@@ -29,7 +29,7 @@ export const COLLECTORS = {
   redBus: configuredCollector('BRIGHT_DATA_COLLECTOR_REDBUS', DEFAULT_COLLECTOR_IDS.redBus, { kind: 'bus', label: 'redBus', allowBatch: false, selfHealing: true }),
   booking: configuredCollector('BRIGHT_DATA_COLLECTOR_BOOKING', DEFAULT_COLLECTOR_IDS.booking, { kind: 'hotel', label: 'Booking.com', timeoutMs: 180000, allowBatch: false, selfHealing: false }),
   expedia: configuredCollector('BRIGHT_DATA_COLLECTOR_EXPEDIA', DEFAULT_COLLECTOR_IDS.expedia, { kind: 'hotel', label: 'Expedia', timeoutMs: 180000, allowBatch: false, selfHealing: true }),
-  tripAdvisor: configuredCollector('BRIGHT_DATA_COLLECTOR_TRIPADVISOR', DEFAULT_COLLECTOR_IDS.tripAdvisor, { kind: 'hotel', label: 'TripAdvisor', composable: false, onDemand: true, input: { max_pages: 1 }, timeoutMs: 60000, allowBatch: false, selfHealing: true, enabled: false, disabledReason: 'A one-input verification expanded into thousands of page loads, so this collector is quarantined for credit safety.' }),
+  tripAdvisor: configuredCollector('BRIGHT_DATA_COLLECTOR_TRIPADVISOR', DEFAULT_COLLECTOR_IDS.tripAdvisor, { kind: 'hotel', label: 'TripAdvisor', composable: false, onDemand: true, input: { max_pages: 1 }, timeoutMs: 60000, allowBatch: false, selfHealing: true }),
 };
 
 const credentialPath = () => process.env.BRIGHT_DATA_CREDENTIALS_PATH
