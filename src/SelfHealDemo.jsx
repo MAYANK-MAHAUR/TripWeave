@@ -124,11 +124,11 @@ export default function SelfHealDemo() {
         if (cancelled) return;
         if (result.status === 'collecting') {
           const elapsed = Date.now() - (activeRun.startedAt || Date.now());
-          if (activeRun.kind === 'broken' && elapsed >= 15000 && !stalledRuns.current.has(activeRun.collectionId)) {
+          if (activeRun.kind === 'broken' && elapsed >= 10000 && !stalledRuns.current.has(activeRun.collectionId)) {
             stalledRuns.current.add(activeRun.collectionId);
             setBrokenResult({ status: 'collecting', stalled: true, records: [], collectionId: activeRun.collectionId });
             setPhase((current) => current === 'broken_collecting' ? 'broken_ready' : current);
-            setLogs((current) => [...current, { time: timestamp(), tone: 'warn', text: 'Legacy selectors stalled', detail: '0 usable hotel fields after 15 seconds; collection continues in background' }]);
+            setLogs((current) => [...current, { time: timestamp(), tone: 'warn', text: 'Legacy selectors stalled', detail: '0 usable hotel fields after 10 seconds; collection continues in background' }]);
           }
           timer = window.setTimeout(poll, 4500); return;
         }
