@@ -3,6 +3,7 @@ import path from 'node:path';
 
 export const DEFAULT_COLLECTOR_IDS = {
   kayak: 'c_mt34f4nd154yqg3cmu',
+  tripFlights: 'c_mt39ie8v4h7vwmpkf',
   skyscanner: 'c_mt33xxeo1713z4li9p',
   omio: 'c_mt337hga2lec1lla6q',
   twelveGo: 'c_mt33etd41dqlhth1m7',
@@ -23,6 +24,7 @@ const configuredCollector = (environmentName, fallbackId, definition) => {
 
 export const COLLECTORS = {
   kayak: configuredCollector('BRIGHT_DATA_COLLECTOR_KAYAK', DEFAULT_COLLECTOR_IDS.kayak, { kind: 'flight', label: 'KAYAK', allowBatch: false, selfHealing: true }),
+  tripFlights: configuredCollector('BRIGHT_DATA_COLLECTOR_TRIP_FLIGHTS', DEFAULT_COLLECTOR_IDS.tripFlights, { kind: 'flight', label: 'Trip.com', allowBatch: false, selfHealing: true }),
   skyscanner: configuredCollector('BRIGHT_DATA_COLLECTOR_SKYSCANNER', DEFAULT_COLLECTOR_IDS.skyscanner, { kind: 'flight', label: 'Skyscanner', allowBatch: false, selfHealing: true }),
   omio: configuredCollector('BRIGHT_DATA_COLLECTOR_OMIO', DEFAULT_COLLECTOR_IDS.omio, { kind: 'flight', label: 'Omio', allowBatch: false, selfHealing: true }),
   twelveGo: configuredCollector('BRIGHT_DATA_COLLECTOR_TWELVE_GO', DEFAULT_COLLECTOR_IDS.twelveGo, { kind: 'route', label: '12Go', allowBatch: false, selfHealing: true }),
