@@ -72,7 +72,61 @@ function LiveUpdateBar({ job }) {
 function OfferFallback({ result }) {
   const transports = result?.offers?.transports || [];
   const hotels = result?.offers?.hotels || [];
-  return <div className="offer-fallback"><div className="fallback-head"><AlertTriangle /><div><h3>{result.streaming ? 'Real offers are arriving now.' : 'No full trip plan is ready yet.'}</h3><p>{result.streaming ? 'You can inspect these returned prices immediately. Remaining sources will appear here automatically.' : 'These are the real rows that did return. TripWeave will not invent the missing side of the trip.'}</p></div></div><div className="raw-offer-columns"><div><span className="detail-label">Transport offers / {transports.length}</span>{transports.slice(0, 8).map((offer) => <a className="raw-offer" href={offer.sourceUrl || '#'} target="_blank" rel="noreferrer" key={offer.id}><ModePills modes={[offer.mode]} /><strong>{offer.operator}</strong><span>{offer.priceText || 'Price unavailable'}</span><small>{offer.tripLeg === 'return' ? 'RETURN' : offer.tripLeg === 'roundtrip' ? 'ROUND TRIP' : 'OUTBOUND'} · {offer.departure || 'Time unavailable'} · {offer.source}</small></a>)}</div><div><span className="detail-label">Hotel offers / {hotels.length}</span>{hotels.slice(0, 8).map((hotel) => <a className="raw-offer" href={hotel.sourceUrl || '#'} target="_blank" rel="noreferrer" key={hotel.id}><ModePills modes={['Hotel']} /><strong>{hotel.name}</strong><span>{hotel.priceText || 'Price unavailable'}</span><small>{hotel.location || 'Location unavailable'} · {hotel.source}</small></a>)}</div></div></div>;
+  const isWaiting = transports.length === 0 || hotels.length === 0;
+
+  if (isWaiting) {
+    return (
+      <div className="offer-fallback offer-waiting">
+        <div className="fallback-head">
+          <LoaderCircle className="spin" />
+          <div>
+            <h3>{result?.streaming ? 'Scanning live flights and hotels...' : 'Waiting for both travel and stay offers'}</h3>
+            <p>
+              {result?.streaming
+                ? 'TripWeave searches live airlines, booking platforms, and stay providers concurrently. Complete trip plans will appear as soon as both transport and hotel options arrive.'
+                : 'A complete trip plan requires both verified transport options and hotel stays. Individual hotel or transport lists are kept hidden until both sides are available.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="offer-fallback">
+      <div className="fallback-head">
+        <AlertTriangle />
+        <div>
+          <h3>{result.streaming ? 'Real offers are arriving now.' : 'No full trip plan is ready yet.'}</h3>
+          <p>{result.streaming ? 'You can inspect these returned prices immediately. Remaining sources will appear here automatically.' : 'These are the real rows that did return. TripWeave will not invent the missing side of the trip.'}</p>
+        </div>
+      </div>
+      <div className="raw-offer-columns">
+        <div>
+          <span className="detail-label">Transport offers / {transports.length}</span>
+          {transports.slice(0, 8).map((offer) => (
+            <a className="raw-offer" href={offer.sourceUrl || '#'} target="_blank" rel="noreferrer" key={offer.id}>
+              <ModePills modes={[offer.mode]} />
+              <strong>{offer.operator}</strong>
+              <span>{offer.priceText || 'Price unavailable'}</span>
+              <small>{offer.tripLeg === 'return' ? 'RETURN' : offer.tripLeg === 'roundtrip' ? 'ROUND TRIP' : 'OUTBOUND'} · {offer.departure || 'Time unavailable'} · {offer.source}</small>
+            </a>
+          ))}
+        </div>
+        <div>
+          <span className="detail-label">Hotel offers / {hotels.length}</span>
+          {hotels.slice(0, 8).map((hotel) => (
+            <a className="raw-offer" href={hotel.sourceUrl || '#'} target="_blank" rel="noreferrer" key={hotel.id}>
+              <ModePills modes={['Hotel']} />
+              <strong>{hotel.name}</strong>
+              <span>{hotel.priceText || 'Price unavailable'}</span>
+              <small>{hotel.location || 'Location unavailable'} · {hotel.source}</small>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AutomaticRecoveryPanel({ recoveries }) {
