@@ -11,7 +11,6 @@ import { decideCollectorSelfHealing, readCollectorSelfHealingProgress, triggerCo
 const expectedCollectorIds = {
   kayak: 'c_mt34f4nd154yqg3cmu',
   skyscanner: 'c_mt33xxeo1713z4li9p',
-  omio: 'c_mt337hga2lec1lla6q',
   twelveGo: 'c_mt33etd41dqlhth1m7',
   redBus: 'c_mt33jayw26hs1jhoie',
   booking: 'c_mt3447092rktiat9du',
@@ -21,19 +20,18 @@ const expectedCollectorIds = {
 
 assert.deepEqual(DEFAULT_COLLECTOR_IDS, expectedCollectorIds, 'Committed fallbacks must point only to the newly supplied account collectors.');
 assert.deepEqual(Object.fromEntries(Object.entries(COLLECTORS).map(([key, value]) => [key, value.id])), expectedCollectorIds);
-assert.ok(['twelveGo', 'redBus', 'booking', 'expedia', 'skyscanner', 'omio', 'kayak', 'tripAdvisor'].every((key) => COLLECTORS[key].enabled), 'Every active production collector must remain enabled.');
+assert.ok(['twelveGo', 'redBus', 'booking', 'expedia', 'skyscanner', 'kayak', 'tripAdvisor'].every((key) => COLLECTORS[key].enabled), 'Every verified production collector must remain enabled.');
 assert.ok(Object.values(COLLECTORS).every((collector) => collector.allowBatch === false), 'Automatic batch replay must stay disabled to prevent duplicate page-load spend.');
 assert.equal(COLLECTORS.booking.selfHealing, false, 'The pre-built Booking.com source must not be rewritten by the custom Scraper Studio repair flow.');
-assert.ok(['twelveGo', 'redBus', 'expedia', 'skyscanner', 'omio', 'kayak', 'tripAdvisor'].every((key) => COLLECTORS[key].selfHealing), 'Every active custom production collector must opt into automatic Self-Healing.');
+assert.ok(['twelveGo', 'redBus', 'expedia', 'skyscanner', 'kayak', 'tripAdvisor'].every((key) => COLLECTORS[key].selfHealing), 'Every active custom production collector must opt into automatic Self-Healing.');
 assert.equal(COLLECTORS.tripAdvisor.composable, false, 'Undated TripAdvisor prices must not enter composed totals.');
-assert.equal(COLLECTORS.tripAdvisor.input.max_pages, 1, 'The optional TripAdvisor reference crawl must stay on one listing page.');
+assert.equal(COLLECTORS.tripAdvisor.input.max_pages, 1, 'The TripAdvisor reference crawl must stay on one listing page.');
 
 const query = normalizeTripQuery({ from: 'Singapore', to: 'Kochi', departDate: '2026-11-05', returnDate: '2026-11-09', adults: 3 });
 const urls = buildCollectorUrls(query, { name: 'Singapore', iata: 'SIN' }, { name: 'Kochi', iata: 'COK' }, { tripAdvisorLocationId: '297633' });
-assert.equal(Object.values(urls).filter(Boolean).length, 10);
+assert.equal(Object.values(urls).filter(Boolean).length, 9);
 assert.match(urls.kayak, /SIN-COK\/2026-11-05\/2026-11-09/);
 assert.match(urls.skyscanner, /sin\/cok\/261105\/261109/);
-assert.match(urls.omio, /flights\/singapore\/kochi/);
 assert.match(urls.twelveGo, /singapore\/kochi\?date=2026-11-05&people=3/);
 assert.match(urls.twelveGoReturn, /kochi\/singapore\?date=2026-11-09&people=3/);
 assert.match(urls.redBus, /singapore-to-kochi\?onward=05-Nov-2026/);
@@ -80,11 +78,11 @@ const dateLineMidpoint = interpolateGreatCircle({ lat: 10, lng: 170 }, { lat: 10
 assert.ok(Math.abs(Math.abs(dateLineMidpoint.lng) - 180) < 0.001, 'Great-circle interpolation must cross the antimeridian by the short path.');
 
 const longRoutePolicy = selectCollectorsForRoute(COLLECTORS, tourOrigin, tourDestination);
-assert.deepEqual(longRoutePolicy.entries.map(([key]) => key), ['kayak', 'skyscanner', 'omio', 'booking', 'expedia'], 'Long-distance searches must include active flight and stay sources.');
+assert.deepEqual(longRoutePolicy.entries.map(([key]) => key), ['kayak', 'skyscanner', 'booking', 'expedia', 'tripAdvisor'], 'Long-distance searches must start every relevant verified flight and stay source together.');
 const shortRoutePolicy = selectCollectorsForRoute(COLLECTORS, { lat: 28.6139, lng: 77.209 }, { lat: 26.9124, lng: 75.7873 });
 assert.ok(shortRoutePolicy.entries.some(([key]) => key === 'twelveGo'), 'Short routes should start with a multimodal ground source.');
 assert.ok(shortRoutePolicy.entries.some(([key]) => key === 'redBus'), 'redBus must be included in ground sources.');
-assert.ok(!shortRoutePolicy.entries.some(([key]) => key === 'tripAdvisor'), 'Reference-only collectors should run only when explicitly requested.');
+assert.ok(shortRoutePolicy.entries.some(([key]) => key === 'tripAdvisor'), 'TripAdvisor must run in the initial search instead of waiting for a second action.');
 const longDomesticPolicy = selectCollectorsForRoute(COLLECTORS, { lat: 28.6139, lng: 77.209, country: 'IN' }, { lat: 9.9312, lng: 76.2673, country: 'IN' });
 assert.ok(longDomesticPolicy.entries.some(([key]) => key === 'twelveGo'), 'Long domestic routes must retain train and ground options.');
 
@@ -134,4 +132,4 @@ assert.match(selfHealingRequests[0].url, new RegExp(`${COLLECTORS.twelveGo.id}/r
 assert.deepEqual(JSON.parse(selfHealingRequests[0].options.body).custom_input, [{ url: urls.twelveGo }]);
 assert.deepEqual(JSON.parse(selfHealingRequests[2].options.body), { message: true, auto_save: true }, 'Automatic recovery must approve and auto-save the patch to the same Collector ID.');
 
-console.log(JSON.stringify({ ok: true, configuredCollectors: Object.keys(expectedCollectorIds).length, activeCollectors: Object.values(COLLECTORS).filter((collector) => collector.enabled).length, quarantinedCollectorsExcluded: true, batchReplayDisabled: true, automaticSelfHealing: true, selfHealingAutoSave: true, dynamicRoute: 'SIN→COK', groundRoundTripPairing: true, cinematicTourStages: tourStages.length, antimeridianRoute: true }, null, 2));
+console.log(JSON.stringify({ ok: true, configuredCollectors: Object.keys(expectedCollectorIds).length, activeCollectors: Object.values(COLLECTORS).filter((collector) => collector.enabled).length, initialSearchIncludesTripAdvisor: true, batchReplayDisabled: true, automaticSelfHealing: true, selfHealingAutoSave: true, dynamicRoute: 'SIN→COK', groundRoundTripPairing: true, cinematicTourStages: tourStages.length, antimeridianRoute: true }, null, 2));

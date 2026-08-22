@@ -114,9 +114,13 @@ export async function resolveHotelLocation(hotel, destination) {
 }
 
 export async function findTripAdvisorLocationId(input) {
-  const raw = String(input || '').trim();
+  const location = input && typeof input === 'object' ? input : null;
+  const raw = String(location?.name || input || '').trim();
   if (!raw) return null;
-  const key = raw.toLowerCase();
+  const target = Number.isFinite(Number(location?.lat)) && Number.isFinite(Number(location?.lng))
+    ? { lat: Number(location.lat), lng: Number(location.lng) }
+    : null;
+  const key = `${raw.toLowerCase()}:${target ? `${target.lat.toFixed(3)},${target.lng.toFixed(3)}` : 'name-only'}`;
   if (tripAdvisorCache.has(key)) return tripAdvisorCache.get(key);
   try {
     const searchResponse = await fetch(`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(raw)}&language=en&format=json&limit=6&origin=*`, {
@@ -133,9 +137,25 @@ export async function findTripAdvisorLocationId(input) {
     });
     if (!entityResponse.ok) throw new Error('Wikidata entity lookup failed.');
     const entityData = await entityResponse.json();
-    const exact = ids.find((id) => entityData.entities?.[id]?.labels?.en?.value?.toLowerCase() === key && entityData.entities?.[id]?.claims?.P3134?.length);
-    const match = exact || ids.find((id) => entityData.entities?.[id]?.claims?.P3134?.length);
-    const value = match ? String(entityData.entities[match].claims.P3134[0]?.mainsnak?.datavalue?.value || '') || null : null;
+    const candidates = ids.map((id) => {
+      const entity = entityData.entities?.[id];
+      const tripAdvisorId = String(entity?.claims?.P3134?.[0]?.mainsnak?.datavalue?.value || '') || null;
+      const coordinates = entity?.claims?.P625?.[0]?.mainsnak?.datavalue?.value;
+      const point = Number.isFinite(Number(coordinates?.latitude)) && Number.isFinite(Number(coordinates?.longitude))
+        ? { lat: Number(coordinates.latitude), lng: Number(coordinates.longitude) }
+        : null;
+      return {
+        id,
+        tripAdvisorId,
+        exactName: entity?.labels?.en?.value?.toLowerCase() === raw.toLowerCase(),
+        distanceKm: target && point ? distanceKm(target, point) : Number.POSITIVE_INFINITY,
+      };
+    }).filter((candidate) => candidate.tripAdvisorId);
+    const nearest = target
+      ? [...candidates].filter((candidate) => Number.isFinite(candidate.distanceKm)).sort((a, b) => a.distanceKm - b.distanceKm)[0]
+      : null;
+    const match = nearest || candidates.find((candidate) => candidate.exactName) || candidates[0];
+    const value = match?.tripAdvisorId || null;
     tripAdvisorCache.set(key, value);
     return value;
   } catch {

@@ -24,7 +24,7 @@ const port = Number(process.env.PORT || 8787);
 const jobs = new Map();
 const cache = new Map();
 const terminalStatuses = new Set(['ready', 'partial', 'error']);
-const pipelineVersion = 3;
+const pipelineVersion = 4;
 const cacheTtlMs = Number(process.env.TRIP_CACHE_TTL_MS || 24 * 60 * 60 * 1000);
 const staleCacheTtlMs = Number(process.env.TRIP_STALE_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000);
 const automaticHealingEnabled = String(process.env.TRIP_AUTO_HEAL_ENABLED || 'true').toLowerCase() !== 'false';
@@ -54,8 +54,7 @@ const settleInterruptedRecoveries = (record) => {
     }])),
   };
 };
-const isCurrentCache = (cached) => cached?.schemaVersion === pipelineVersion
-  || (cached?.result?.result?.sources?.length && cached.result.result.sources.every((source) => Object.hasOwn(source, 'tripLeg')));
+const isCurrentCache = (cached) => cached?.schemaVersion === pipelineVersion;
 const cachedJobById = (id) => {
   try {
     for (const file of fs.readdirSync(cacheDirectory)) {
@@ -253,11 +252,11 @@ async function executeTrip(job) {
     const [origin, destination] = await Promise.all([resolveLocation(job.query.from), resolveLocation(job.query.to)]);
     job.locations = { origin, destination };
     const placesPromise = findAttractions(destination).catch(() => []);
-    const tripAdvisorLocationId = job.options?.includeReferenceSources ? await findTripAdvisorLocationId(destination.name || job.query.to) : null;
+    const tripAdvisorLocationId = COLLECTORS.tripAdvisor?.enabled ? await findTripAdvisorLocationId(destination) : null;
     const urls = buildCollectorUrls(job.query, origin, destination, { tripAdvisorLocationId });
     updateJob(job, { stage: 'Triggering live travel collectors', progress: 18 });
 
-    const collectorSelection = selectCollectorsForRoute(COLLECTORS, origin, destination, job.options);
+    const collectorSelection = selectCollectorsForRoute(COLLECTORS, origin, destination);
     job.creditPolicy = {
       mode: 'quality_first_live',
       routeDistanceKm: collectorSelection.distanceKm,
@@ -430,10 +429,9 @@ app.post('/api/trips', (request, response) => {
   try {
     const query = normalizeTripQuery(request.body);
     if (!query.from || !query.to) throw new Error('Enter both origin and destination.');
-    const options = { includeReferenceSources: request.body?.includeReferenceSources === true };
     const forceRefresh = request.body?.forceRefresh === true;
     const canonicalQuery = { ...query, from: query.from.toLowerCase(), to: query.to.toLowerCase() };
-    const cacheKey = options.includeReferenceSources ? JSON.stringify({ query: canonicalQuery, includeReferenceSources: true }) : JSON.stringify(canonicalQuery);
+    const cacheKey = JSON.stringify(canonicalQuery);
     if (!forceRefresh) {
       const reusableJob = [...jobs.values()].find((candidate) => candidate.cacheKey === cacheKey
         && candidate.status !== 'error'
@@ -446,7 +444,7 @@ app.post('/api/trips', (request, response) => {
       if (cached) cache.set(cacheKey, cached);
     }
     if (!forceRefresh && cached && isCurrentCache(cached) && Date.now() - cached.at < cacheTtlMs) return response.status(200).json({ ...settleInterruptedRecoveries(cached.result), cached: true, creditSaved: true });
-    const job = { id: crypto.randomUUID(), cacheKey, query, options, creditPolicy: null, status: 'queued', stage: 'Queued', progress: 0, collectors: {}, recoveries: {}, locations: null, result: null, error: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const job = { id: crypto.randomUUID(), cacheKey, query, options: {}, creditPolicy: null, status: 'queued', stage: 'Queued', progress: 0, collectors: {}, recoveries: {}, locations: null, result: null, error: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     jobs.set(job.id, job);
     executeTrip(job);
     return response.status(202).json(publicJob(job));

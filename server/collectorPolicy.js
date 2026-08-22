@@ -9,22 +9,19 @@ export function routeDistanceKm(origin, destination) {
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
 }
 
-export function selectCollectorsForRoute(collectors, origin, destination, { includeReferenceSources = false } = {}) {
+export function selectCollectorsForRoute(collectors, origin, destination) {
   const distanceKm = routeDistanceKm(origin, destination);
   const longDistance = distanceKm > 1800;
   const crossBorderLongDistance = longDistance && origin.country && destination.country && origin.country !== destination.country;
   const entries = Object.entries(collectors).filter(([, definition]) => {
     if (!definition.enabled) return false;
-    if (definition.composable === false && !includeReferenceSources) return false;
     if (crossBorderLongDistance && ['route', 'bus'].includes(definition.kind)) return false;
     return true;
   });
   const skipped = Object.entries(collectors).filter(([key]) => !entries.some(([selectedKey]) => selectedKey === key)).map(([key, definition]) => ({
     key,
     label: definition.label,
-    reason: definition.composable === false && !includeReferenceSources
-      ? 'Reference-only source is available on demand.'
-      : crossBorderLongDistance && ['route', 'bus'].includes(definition.kind)
+    reason: crossBorderLongDistance && ['route', 'bus'].includes(definition.kind)
         ? 'Ground transport skipped for a long-distance route.'
         : 'Collector disabled.',
   }));

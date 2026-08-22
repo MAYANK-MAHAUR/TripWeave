@@ -24,7 +24,12 @@ async function brightDataRequest(endpoint, { method = 'GET', body, timeoutMs = 2
   return { response, payload };
 }
 
-const configuredCollectorId = () => String(process.env.BRIGHT_DATA_SELF_HEAL_COLLECTOR_ID || 'c_mt30n0l416uiazn4sv').trim();
+const defaultSelfHealCollectorId = 'c_mt30n0l416uiazn4sv';
+const retiredSelfHealCollectorIds = new Set(['c_mt2irqjv2p4vz845x']);
+const configuredCollectorId = () => {
+  const configured = String(process.env.BRIGHT_DATA_SELF_HEAL_COLLECTOR_ID || '').trim();
+  return configured && !retiredSelfHealCollectorIds.has(configured) ? configured : defaultSelfHealCollectorId;
+};
 const configuredTargetUrl = () => String(process.env.SELF_HEAL_TARGET_URL || 'https://tripweave-production.up.railway.app/self-heal-target').trim();
 
 const validateCollectorId = (collectorId) => {

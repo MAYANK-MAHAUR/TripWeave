@@ -51,7 +51,7 @@ Each plan includes:
 
 ```mermaid
 flowchart LR
-    A[Enter your trip] --> B[Choose relevant verified sources]
+    A[Enter your trip] --> B[Start every relevant verified source]
     B --> C[Collect live transport and stays]
     C --> D[Build complete trip plans]
     D --> E[Compare total costs]
@@ -59,7 +59,7 @@ flowchart LR
 ```
 
 1. **You describe the trip.** Choose where you are travelling from and to, the dates and one to four travellers.
-2. **TripWeave compares across verified travel sources.** Bright Data starts with the transport and hotel collectors that make sense for that route; the traveller can explicitly check every other compatible source that has passed the live contract.
+2. **TripWeave searches the verified sources together.** One search starts every compatible transport and hotel collector, including TripAdvisor.
 3. **Results appear progressively.** TripWeave does not make the traveller wait for every website before showing the first useful plans. If a custom collector breaks, Scraper Studio repairs it in the background and recovered rows appear in the same trip.
 4. **The pieces become complete trips.** Prices from different websites are converted, cleaned and combined into transport-and-stay plans.
 5. **You compare the real total.** Plans are ordered from budget to premium, while missing costs remain clearly labelled.
@@ -73,18 +73,19 @@ Opening a guided trip starts at the origin, animates the selected transport rout
 
 ## Bright Data is the data layer
 
-Bright Data Scraper Studio powers the live comparison. Booking.com uses Bright Data's prebuilt scraper, while TripWeave's other sources use custom Scraper Studio collectors. Only collectors that pass a real route, output-shape and page-load check are allowed into a trip.
+Bright Data Scraper Studio powers the live comparison across seven verified websites. Booking.com uses Bright Data's prebuilt scraper, while the other six sources use custom Scraper Studio collectors. A new destination can take one to two minutes while the live listings arrive; identical recent searches reuse a cached result instead of spending credits again.
 
 | Website | What TripWeave collects | Current use |
 |---|---|---|
+| [KAYAK](https://www.kayak.com/flights) | Airlines, times, stops and round-trip prices | Live custom collector |
+| [Skyscanner](https://www.skyscanner.net/flights) | Flight alternatives, durations and prices | Live custom collector |
 | [12Go](https://12go.asia/en) | Regional trains, buses and route options | Live custom collector |
 | [redBus](https://www.redbus.in/) | Bus operators, timings, availability and prices | Live custom collector |
 | [Booking.com](https://www.booking.com/) | Hotels, rooms, ratings and stay prices | Live Bright Data prebuilt scraper |
 | [Expedia](https://www.expedia.com/) | Hotel alternatives, amenities and prices | Live custom collector |
+| [Tripadvisor](https://www.tripadvisor.com/Hotels) | Hotel discovery, ratings, reviews and listing prices | Live one-page custom collector |
 
-KAYAK, Skyscanner, Omio and Tripadvisor integrations remain configurable, but they are quarantined from live searches when generation fails, a route cannot be built safely, or one input expands into excessive page loads. This protects both result quality and Bright Data credits.
-
-TripWeave does not blindly run every source for every route. Long international searches skip regional ground transport, unsafe collectors stay quarantined, and recent identical searches are reused to save Bright Data credits.
+All compatible collectors begin in the same search. Long international routes skip regional ground websites that cannot serve that journey. TripAdvisor is capped at one listing page and its undated prices remain reference results, so they cannot distort the verified travel-and-stay total.
 
 ## The live collectors repair themselves
 
@@ -159,10 +160,6 @@ npm run test:e2e:self-heal
 ```
 
 The self-healing browser tests use intercepted responses and do not spend Bright Data credits.
-
-## AI-assisted development disclosure
-
-TripWeave was developed with Codex as a coding assistant. Gemini is used at runtime to organize recommendations from the real options returned by the collectors. All generated code, scraper outputs and technical decisions were reviewed and tested by the project author.
 
 ## Built with
 

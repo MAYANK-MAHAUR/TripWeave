@@ -4,7 +4,6 @@ import path from 'node:path';
 export const DEFAULT_COLLECTOR_IDS = {
   kayak: 'c_mt34f4nd154yqg3cmu',
   skyscanner: 'c_mt33xxeo1713z4li9p',
-  omio: 'c_mt337hga2lec1lla6q',
   twelveGo: 'c_mt33etd41dqlhth1m7',
   redBus: 'c_mt33jayw26hs1jhoie',
   booking: 'c_mt3447092rktiat9du',
@@ -24,12 +23,11 @@ const configuredCollector = (environmentName, fallbackId, definition) => {
 export const COLLECTORS = {
   kayak: configuredCollector('BRIGHT_DATA_COLLECTOR_KAYAK', DEFAULT_COLLECTOR_IDS.kayak, { kind: 'flight', label: 'KAYAK', allowBatch: false, selfHealing: true }),
   skyscanner: configuredCollector('BRIGHT_DATA_COLLECTOR_SKYSCANNER', DEFAULT_COLLECTOR_IDS.skyscanner, { kind: 'flight', label: 'Skyscanner', allowBatch: false, selfHealing: true }),
-  omio: configuredCollector('BRIGHT_DATA_COLLECTOR_OMIO', DEFAULT_COLLECTOR_IDS.omio, { kind: 'flight', label: 'Omio', allowBatch: false, selfHealing: true }),
   twelveGo: configuredCollector('BRIGHT_DATA_COLLECTOR_TWELVE_GO', DEFAULT_COLLECTOR_IDS.twelveGo, { kind: 'route', label: '12Go', allowBatch: false, selfHealing: true }),
   redBus: configuredCollector('BRIGHT_DATA_COLLECTOR_REDBUS', DEFAULT_COLLECTOR_IDS.redBus, { kind: 'bus', label: 'redBus', allowBatch: false, selfHealing: true }),
   booking: configuredCollector('BRIGHT_DATA_COLLECTOR_BOOKING', DEFAULT_COLLECTOR_IDS.booking, { kind: 'hotel', label: 'Booking.com', timeoutMs: 180000, allowBatch: false, selfHealing: false }),
   expedia: configuredCollector('BRIGHT_DATA_COLLECTOR_EXPEDIA', DEFAULT_COLLECTOR_IDS.expedia, { kind: 'hotel', label: 'Expedia', timeoutMs: 180000, allowBatch: false, selfHealing: true }),
-  tripAdvisor: configuredCollector('BRIGHT_DATA_COLLECTOR_TRIPADVISOR', DEFAULT_COLLECTOR_IDS.tripAdvisor, { kind: 'hotel', label: 'TripAdvisor', composable: false, onDemand: true, input: { max_pages: 1 }, timeoutMs: 60000, allowBatch: false, selfHealing: true }),
+  tripAdvisor: configuredCollector('BRIGHT_DATA_COLLECTOR_TRIPADVISOR', DEFAULT_COLLECTOR_IDS.tripAdvisor, { kind: 'hotel', label: 'TripAdvisor', composable: false, input: { max_pages: 1 }, timeoutMs: 60000, allowBatch: false, selfHealing: true }),
 };
 
 const credentialPath = () => process.env.BRIGHT_DATA_CREDENTIALS_PATH
